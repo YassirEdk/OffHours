@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
+import { PackProvider } from "@/context/PackContext";
+import { BrandProvider } from "@/context/BrandContext";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -91,10 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      /* SVG first: browsers that understand it take the real mark, the rest
-         fall through to the .ico. */
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -122,8 +121,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      {/* The brief and the pack it generates. Above Outlet so a future brief
+          form on one route and the pack on another share one source. */}
+      <PackProvider>
+        <BrandProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </BrandProvider>
+      </PackProvider>
     </QueryClientProvider>
   );
 }

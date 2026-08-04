@@ -50,10 +50,13 @@ export function LogoMark({
 }
 
 export function Logo({
+  name,
   size = 22,
   className = "",
   wordmarkClassName = "display text-lg",
 }: {
+  /** The wordmark. Comes from the brief, so a generated pack signs itself. */
+  name: string;
   size?: number;
   className?: string;
   wordmarkClassName?: string;
@@ -61,7 +64,7 @@ export function Logo({
   return (
     <span className={`logo ${className}`}>
       <LogoMark size={size} />
-      <span className={`logo-word ${wordmarkClassName}`}>Offhours</span>
+      <span className={`logo-word ${wordmarkClassName}`}>{name}</span>
     </span>
   );
 }
