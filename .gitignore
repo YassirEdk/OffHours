@@ -35,3 +35,37 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Windows OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# TypeScript / Vite caches
+*.tsbuildinfo
+.vite/
+
+# Test artifacts
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Deploy provider artifacts (add if you deploy to these)
+.vercel
+.netlify
+.cloudflare/
+
+# Local scratch — anything you drop in /tmp or /scratch
+tmp/
+scratch/
+
+# Package manager artifacts
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
