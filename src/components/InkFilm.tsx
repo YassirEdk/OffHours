@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { fbm4, valueNoise, hexToRgb, mixHsv, SECTION_ACCENTS, type RGB } from "@/lib/ink";
+import { fbm4, valueNoise, hexToRgb, mixHsv, ACCENTS, type RGB } from "@/lib/ink";
 
 const BW = 200;
 const BH = 113;
@@ -32,19 +32,102 @@ export function InkFilm() {
       }
     }
 
-    const accents = SECTION_ACCENTS.map(hexToRgb);
+    /* ------------------------------------------------------------------
+       Glitch pass. Runs on the 200x113 buffer before the upscale, so the
+       tears come out chunky and soft-edged rather than hairline-sharp.
+       Bursts are short and irregular: long enough to register, rare enough
+       that the page still reads as a background and not a broken screen.
+       ------------------------------------------------------------------ */
+    type Band = { y0: number; y1: number; dx: number; dr: number; db: number; lit: boolean };
+
+    const scratch = new Uint8ClampedArray(BW * BH * 4);
+    let bands: Band[] = [];
+    let burstUntil = 0;
+    let nextBurst = 0;
+    let burstZ = 0; // field displacement, so the ink itself tears, not just the pixels
+
+    const planBurst = (now: number) => {
+      const count = 4 + ((Math.random() * 8) | 0);
+      bands = [];
+      for (let i = 0; i < count; i++) {
+        const y0 = (Math.random() * BH) | 0;
+        const h = 2 + ((Math.random() * 26) | 0);
+        bands.push({
+          y0,
+          y1: Math.min(BH, y0 + h),
+          dx: ((Math.random() * 2 - 1) * 64) | 0,
+          dr: ((Math.random() * 2 - 1) * 15) | 0,
+          db: ((Math.random() * 2 - 1) * 15) | 0,
+          lit: Math.random() < 0.5,
+        });
+      }
+      // Occasional hard tear: everything below a point shunts sideways at once.
+      if (Math.random() < 0.4) {
+        const y0 = ((Math.random() * BH * 0.7) | 0) + 10;
+        bands.push({
+          y0,
+          y1: BH,
+          dx: ((Math.random() * 2 - 1) * 40) | 0,
+          dr: ((Math.random() * 2 - 1) * 10) | 0,
+          db: ((Math.random() * 2 - 1) * 10) | 0,
+          lit: true,
+        });
+      }
+      burstZ = (Math.random() * 2 - 1) * 5.5;
+      // Long enough for a viewer to actually register the tear, short enough
+      // that the page never feels broken.
+      burstUntil = now + 130 + Math.random() * 520;
+      // Cluster: bursts often arrive in stuttering pairs or triples.
+      nextBurst = burstUntil + (Math.random() < 0.45 ? 60 + Math.random() * 140 : 320 + Math.random() * 1500);
+    };
+
+    const applyGlitch = () => {
+      scratch.set(data);
+      for (const b of bands) {
+        for (let y = b.y0; y < b.y1; y++) {
+          const row = y * BW;
+          for (let x = 0; x < BW; x++) {
+            const idx = (row + x) << 2;
+            const sx = (((x + b.dx) % BW) + BW) % BW;
+            const rx = (((x + b.dx + b.dr) % BW) + BW) % BW;
+            const bx2 = (((x + b.dx + b.db) % BW) + BW) % BW;
+            data[idx] = scratch[(row + rx) << 2] as number;
+            data[idx + 1] = scratch[((row + sx) << 2) + 1] as number;
+            data[idx + 2] = scratch[((row + bx2) << 2) + 2] as number;
+          }
+        }
+        // A blown-out scan edge on some bands reads as signal loss.
+        if (b.lit) {
+          const row = b.y0 * BW;
+          for (let x = 0; x < BW; x++) {
+            const idx = (row + x) << 2;
+            data[idx] = Math.min(255, (data[idx] as number) + 90);
+            data[idx + 1] = Math.min(255, (data[idx + 1] as number) + 90);
+            data[idx + 2] = Math.min(255, (data[idx + 2] as number) + 90);
+          }
+        }
+      }
+    };
+
+    // The ramp walks the four accents in order, one per section, cycling for as
+    // many [data-section] elements as the page actually has. Derived at measure
+    // time so a route with 8 sections and one with 9 both stay anchored.
+    const CYCLE: RGB[] = [ACCENTS.acid, ACCENTS.orange, ACCENTS.cyan, ACCENTS.magenta].map(hexToRgb);
+
+    let accents: RGB[] = CYCLE.slice();
     let stops: number[] = accents.map((_, i) => i / (accents.length - 1));
 
     const measure = () => {
       const total = Math.max(1, document.body.scrollHeight - window.innerHeight);
       const els = Array.from(document.querySelectorAll<HTMLElement>("[data-section]"));
-      if (els.length === accents.length) {
-        stops = els.map((el) => {
-          const r = el.getBoundingClientRect();
-          const centre = r.top + window.scrollY + r.height / 2 - window.innerHeight / 2;
-          return Math.min(1, Math.max(0, centre / total));
-        });
-      }
+      if (els.length < 2) return;
+
+      accents = els.map((_, i) => CYCLE[i % CYCLE.length] as RGB);
+      stops = els.map((el) => {
+        const r = el.getBoundingClientRect();
+        const centre = r.top + window.scrollY + r.height / 2 - window.innerHeight / 2;
+        return Math.min(1, Math.max(0, centre / total));
+      });
     };
 
     const rampColour = (t: number): RGB => {
@@ -74,15 +157,27 @@ export function InkFilm() {
       current = -999; // force redraw
     };
 
+    // Seconds since mount, advanced by the loop. Drives the idle drift.
+    let clock = 0;
+
     const render = (t: number) => {
       const [ar, ag, ab] = rampColour(t);
-      const z = t * 7.5;
-      const fx = t * 2.4;
-      const fy = -t * 3.1;
 
-      // Slowly drifting radial bias keeps a dense bloom on screen at every position.
-      const bx = 0.5 + 0.32 * Math.sin(t * 5.1 + 0.7);
-      const by = 0.5 + 0.28 * Math.cos(t * 3.7 + 1.9);
+      // Scroll positions the dye; `clock` keeps it moving when nobody is scrolling.
+      // The plumes should be visibly alive on a still page — roughly one full
+      // rework of the field every ~20s — while scroll still drives the larger
+      // shifts between sections.
+      const glitching = !reduced && performance.now() < burstUntil;
+
+      // burstZ yanks the noise field sideways mid-burst, so the plumes themselves
+      // jump rather than the tear only smearing whatever was already drawn.
+      const z = t * 7.5 + clock * 0.34 + (glitching ? burstZ : 0);
+      const fx = t * 2.4 + clock * 0.15 + (glitching ? burstZ * 0.4 : 0);
+      const fy = -t * 3.1 - clock * 0.105;
+
+      // Drifting radial bias keeps a dense bloom on screen, and keeps it moving.
+      const bx = 0.5 + 0.32 * Math.sin(t * 5.1 + 0.7 + clock * 0.21);
+      const by = 0.5 + 0.28 * Math.cos(t * 3.7 + 1.9 + clock * 0.16);
 
       let p = 0;
       for (let y = 0; y < BH; y++) {
@@ -112,7 +207,9 @@ export function InkFilm() {
 
           const b0 = base[p] as number;
           const dye = skirt * 0.14 + core * 0.34;
-          const l = dye * shade;
+          // Flare the dye mid-burst — on a near-black ground a sideways shift of
+          // dark pixels is invisible, so the tear needs something bright to move.
+          const l = dye * shade * (glitching ? 2.2 : 1);
 
           const idx = p << 2;
           data[idx] = Math.min(255, GROUND[0] + b0 * 255 + ar * l);
@@ -122,6 +219,8 @@ export function InkFilm() {
           p++;
         }
       }
+      if (glitching) applyGlitch();
+
       bctx.putImageData(image, 0, 0);
       ctx.imageSmoothingEnabled = true;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -133,17 +232,47 @@ export function InkFilm() {
     let last = 0;
     let raf = 0;
 
+    // ~30fps — enough that the moving plumes read as fluid rather than stepped.
+    const FRAME_MS = 33;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let t0 = performance.now();
+    let hidden = document.hidden;
+
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
-      const delta = target - current;
-      if (Math.abs(delta) < 0.00025) {
-        current = target;
-        return; // fully at rest: no redraw
+      if (hidden) return;
+
+      if (reduced) {
+        // No ambient motion — redraw only when the scroll position moves.
+        const delta = target - current;
+        if (Math.abs(delta) < 0.00025) {
+          current = target;
+          return; // fully at rest: no redraw
+        }
+        if (now - last < 33) return;
+        last = now;
+        current += delta * 0.12;
+        render(current);
+        return;
       }
-      if (now - last < 33) return;
+
+      if (now > nextBurst) planBurst(now);
+
+      if (now - last < FRAME_MS) return;
       last = now;
-      current += delta * 0.12;
+      clock = (now - t0) / 1000;
+      const delta = target - current;
+      current = Math.abs(delta) < 0.00025 ? target : current + delta * 0.12;
       render(current);
+    };
+
+    const onVisibility = () => {
+      hidden = document.hidden;
+      // Re-anchor so the film resumes where it left off instead of jumping.
+      if (!hidden) {
+        t0 = performance.now() - clock * 1000;
+        last = 0;
+      }
     };
 
     const onScroll = () => {
@@ -158,12 +287,14 @@ export function InkFilm() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", onVisibility);
     raf = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

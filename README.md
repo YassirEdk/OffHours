@@ -22,7 +22,7 @@ Fixed bar, transparent, monospace uppercase at 0.68rem with 0.16em tracking. Wor
 
 ## 01 Cover
 
-Centred spine, not a left-pinned mast. Stack the wordmark on two lines at clamp(2.8rem,10.5vw,9.5rem), the second line in the first accent. Under it a condensed tagline at clamp(1.4rem,3.2vw,2.4rem) constrained to about 19 characters so it breaks on two balanced lines. Then one paragraph at 46 characters wide. Pin the section index centred at the bottom, and a small rotating circular-text badge bottom right whose rotation is driven by scroll, not by an idle loop.
+Centred spine, not a left-pinned mast. Stack the wordmark on two lines at clamp(2.8rem,10.5vw,9.5rem), the second line in the first accent. Under it a condensed tagline at clamp(1.4rem,3.2vw,2.4rem) held to a single line, with its two opposed nouns coloured — the one being sold in the section accent, the one being refused in the accent furthest from it. This and the close are the only places a section carries two accents at once. Then one paragraph at 46 characters wide. Pin the section index centred at the bottom, and a small rotating circular-text badge bottom right whose rotation is driven by scroll, not by an idle loop.
 
 ## 02 The argument
 

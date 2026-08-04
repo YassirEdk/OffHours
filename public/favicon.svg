@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Offhours: a power glyph and a clock in one figure. Same geometry as
+       src/components/Logo.tsx, on the site's ground colour so the mark holds
+       its own shape in a light browser tab instead of dissolving into it. -->
+  <rect width="24" height="24" rx="5" fill="#0A0B0C"/>
+  <g transform="translate(12 12) scale(0.78) translate(-12 -12)" fill="none" stroke-linecap="round" stroke-width="2.2">
+    <path d="M17.54 4.91A9 9 0 1 1 6.46 4.91" stroke="#F5F3EF"/>
+    <path d="M12 12V2.6" stroke="#F5F3EF"/>
+    <path d="M12 12l4.5 2.6" stroke="#D8FF3E"/>
+  </g>
+</svg>

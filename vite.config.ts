@@ -2,6 +2,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
@@ -12,7 +13,9 @@ export default defineConfig(({ command, mode }) => ({
   },
   resolve: {
     alias: {
-      "@": new URL("./src", import.meta.url).pathname,
+      // fileURLToPath, not .pathname — on Windows the latter yields
+      // "/C:/…/Entreprise%20generate/src", which Node cannot open.
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
     // Keep a single copy of React/Query in the graph — duplicates break hooks.
     dedupe: [

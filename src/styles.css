@@ -291,6 +291,99 @@ body {
   transform-origin: left center;
 }
 
+/* 01 cover — "that sell" climbs from the section accent at the baseline to warm
+   white at the cap line, the two meeting across the middle of the letterform.
+   The ramp goes on each .char rather than on the wrapper: .char carries
+   will-change:transform for the reveal, which promotes every letter to its own
+   layer, and a promoted descendant can't be painted by an ancestor's
+   text-clipped background — the words come out invisible. Per-char is identical
+   to eye anyway, since every .char box is the same height, so the meeting point
+   lands on the same line across the whole phrase. */
+.grad-sell {
+  color: var(--accent, #d8ff3e);
+}
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .grad-sell .char {
+    background-image: linear-gradient(
+      to top,
+      var(--accent, #d8ff3e) 0%,
+      var(--accent, #d8ff3e) 38%,
+      #f5f3ef 62%,
+      #f5f3ef 100%
+    );
+    /* Twice the box tall, so the meeting line can travel without the ramp ever
+       running out. At this size background-position-y reads directly as "how
+       far up the letter the waterline sits". */
+    background-size: 100% 200%;
+    background-position-y: 56%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: sell-tide 5.6s ease-in-out infinite alternate;
+    /* Negative, so every letter starts already mid-swell at a different phase:
+       the line rolls along the word instead of the whole phrase pulsing at
+       once, which is the difference between a tide and a blink. */
+    animation-delay: calc(var(--i, 0) * -0.19s);
+  }
+}
+/* 34% to 78% keeps the line inside the ink — the glyphs run from 13% to 92% of
+   the box, the rest is descender space where a moving edge would be invisible. */
+@keyframes sell-tide {
+  from {
+    background-position-y: 34%;
+  }
+  to {
+    background-position-y: 78%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grad-sell .char {
+    animation: none;
+  }
+}
+
+/* logo — the hour hand sweeps a full turn on hover, pivoting on the dial centre
+   rather than the box centre. The wordmark tightens a touch against the default
+   display tracking so the mark and the type read as one lockup. */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+}
+.logo-word {
+  letter-spacing: -0.02em;
+}
+.logo-mark .logo-hand {
+  transform-origin: 12px 12px;
+  transition: transform 0.9s cubic-bezier(0.6, 0, 0.2, 1);
+}
+.logo:hover .logo-mark .logo-hand,
+a:hover > .logo-mark .logo-hand {
+  transform: rotate(360deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-mark .logo-hand {
+    transition: none;
+  }
+}
+
+/* 01 tagline — one pigment, two states. The thing being sold is the accent lit
+   from behind; the thing being refused is the same accent gone flat and dirty,
+   with no light of its own. Both derive from --accent via color-mix so the pair
+   stays related if the section's accent ever changes. */
+.yellow-lit {
+  color: var(--accent, #d8ff3e);
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--accent, #d8ff3e) 52%, transparent),
+    0 0 34px color-mix(in srgb, var(--accent, #d8ff3e) 26%, transparent);
+}
+.yellow-dull {
+  color: #a3a45c; /* fallback for no color-mix */
+  color: color-mix(in oklab, var(--accent, #d8ff3e) 52%, #5d5e46);
+  text-shadow: none;
+}
+
 /* char mask reveal */
 .word-mask {
   display: inline-block;
@@ -381,6 +474,41 @@ body {
   transition: transform 0.5s cubic-bezier(0.6, 0, 0.2, 1), color 0.4s ease;
 }
 
+/* 08 deck — the frame is exactly three cards plus the two gaps between them, so
+   slides four to six sit outside it until the scrub brings them across. */
+.deck-frame {
+  width: 100%;
+  max-width: calc(var(--card) * 3 + 2rem);
+  overflow: hidden;
+}
+/* At rest and at the end a card edge sits flush against the frame, so no fade is
+   wanted. In between, a card is always mid-crossing and the frame's right edge
+   cuts it against empty page — so the fade rises as the deck leaves either end
+   and the slides dissolve across the boundary instead of being sliced by it. */
+.deck-mask {
+  --deck-edge: clamp(0, min(calc(var(--deck, 0) * 22), calc((1 - var(--deck, 0)) * 22)), 1);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 3.5rem * var(--deck-edge)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 3.5rem * var(--deck-edge)), transparent 100%);
+}
+.deck-rule {
+  position: relative;
+  flex: 1;
+  height: 1px;
+  background: rgba(245, 243, 239, 0.14);
+}
+.deck-rule::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(var(--deck, 0));
+  transform-origin: left center;
+}
+
 /* offer cards */
 .offer-card {
   position: relative;
@@ -457,4 +585,279 @@ body {
 }
 .ext-link:hover::after {
   transform: scaleX(1);
+}
+
+/* ============================================================
+   PROMO PANE — the "what everyone posts" side of section 03.
+   Deliberately over-produced: glowing headline, floating cards,
+   a pulsing CTA. That gloss is the point — it is what generic
+   agency content actually looks like before anyone asks what
+   it says.
+   ============================================================ */
+
+.promo-title {
+  position: relative;
+  color: #fff;
+  text-shadow:
+    0 0 18px rgba(255, 255, 255, 0.55),
+    0 0 42px rgba(190, 150, 255, 0.75),
+    0 0 80px rgba(150, 100, 255, 0.5);
+  animation: promo-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes promo-glow {
+  0%,
+  100% {
+    text-shadow:
+      0 0 18px rgba(255, 255, 255, 0.5),
+      0 0 42px rgba(190, 150, 255, 0.7),
+      0 0 80px rgba(150, 100, 255, 0.45);
+  }
+  50% {
+    text-shadow:
+      0 0 26px rgba(255, 255, 255, 0.85),
+      0 0 62px rgba(205, 170, 255, 0.95),
+      0 0 120px rgba(160, 110, 255, 0.7);
+  }
+}
+
+.promo-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.07));
+  box-shadow: 0 10px 30px rgba(30, 10, 70, 0.35);
+  animation: promo-float 4.6s ease-in-out infinite;
+  transition:
+    transform 0.45s cubic-bezier(0.6, 0, 0.2, 1),
+    box-shadow 0.45s cubic-bezier(0.6, 0, 0.2, 1),
+    border-color 0.45s ease;
+}
+.promo-card:nth-child(2) { animation-delay: 0.5s; }
+.promo-card:nth-child(3) { animation-delay: 1s; }
+
+.promo-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 18px 44px rgba(30, 10, 70, 0.5);
+}
+
+@keyframes promo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+/* A highlight that sweeps across each card on a stagger. */
+.promo-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  animation: promo-sheen 5.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.promo-card:nth-child(2)::after { animation-delay: 0.9s; }
+.promo-card:nth-child(3)::after { animation-delay: 1.8s; }
+
+@keyframes promo-sheen {
+  0%, 62% { transform: translateX(-120%); }
+  84%, 100% { transform: translateX(120%); }
+}
+
+.promo-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.promo-icon svg {
+  width: 21px;
+  height: 21px;
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55));
+}
+
+.promo-cta {
+  position: relative;
+  animation: promo-pulse 2.6s ease-in-out infinite;
+  transition: transform 0.35s cubic-bezier(0.6, 0, 0.2, 1);
+}
+.promo-cta:hover { transform: scale(1.05); }
+
+@keyframes promo-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.55); }
+  70% { box-shadow: 0 0 0 16px rgba(255, 255, 255, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-title,
+  .promo-card,
+  .promo-card::after,
+  .promo-cta {
+    animation: none;
+  }
+  .promo-card::after { opacity: 0; }
+}
+
+/* ============================================================
+   PROOF PANE — the "what gets replies" side of section 03.
+   Same treatment as .promo-* but in the page's own language:
+   one accent, hairline rules, motion that resolves instead of
+   looping loudly. It should read as considered, not as louder.
+   ============================================================ */
+
+.proof-title {
+  text-shadow: 0 2px 20px rgba(6, 7, 8, 0.9);
+}
+.proof-title .hi {
+  color: var(--cyan);
+  text-shadow:
+    0 0 16px rgba(111, 227, 255, 0.55),
+    0 0 44px rgba(111, 227, 255, 0.35);
+  animation: proof-glow 3.6s ease-in-out infinite;
+}
+
+@keyframes proof-glow {
+  0%,
+  100% {
+    text-shadow:
+      0 0 16px rgba(111, 227, 255, 0.5),
+      0 0 44px rgba(111, 227, 255, 0.3);
+  }
+  50% {
+    text-shadow:
+      0 0 24px rgba(111, 227, 255, 0.85),
+      0 0 70px rgba(111, 227, 255, 0.5);
+  }
+}
+
+.proof-row {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.5s cubic-bezier(0.6, 0, 0.2, 1);
+}
+
+/* Fill from the bottom on hover and invert — the same gesture the index
+   rows in section 06 use, so the page keeps one interaction language. */
+.proof-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--cyan);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.45s cubic-bezier(0.6, 0, 0.2, 1);
+}
+.proof-row > * {
+  position: relative;
+  transition: color 0.35s ease;
+}
+.proof-row:hover::before {
+  transform: scaleY(1);
+}
+.proof-row:hover > * {
+  color: #0a0b0c !important;
+}
+
+/* A single hairline pulse travelling down the stack, one row at a time. */
+.proof-row::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: proof-scan 6s cubic-bezier(0.6, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+.proof-row:nth-of-type(2)::after { animation-delay: 0.35s; }
+.proof-row:nth-of-type(3)::after { animation-delay: 0.7s; }
+
+@keyframes proof-scan {
+  0% { transform: scaleX(0); transform-origin: left; opacity: 1; }
+  14% { transform: scaleX(1); transform-origin: left; opacity: 1; }
+  22% { transform: scaleX(1); transform-origin: right; opacity: 1; }
+  36% { transform: scaleX(0); transform-origin: right; opacity: 1; }
+  37%, 100% { transform: scaleX(0); opacity: 0; }
+}
+
+.proof-num {
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(111, 227, 255, 0.55);
+}
+
+.proof-stat {
+  position: relative;
+  width: fit-content;
+}
+.proof-stat::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -14px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--cyan);
+  animation: proof-live 2.4s ease-in-out infinite;
+}
+
+@keyframes proof-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(111, 227, 255, 0.6); opacity: 1; }
+  70% { box-shadow: 0 0 0 10px rgba(111, 227, 255, 0); opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proof-title .hi,
+  .proof-row::after,
+  .proof-stat::before {
+    animation: none;
+  }
+  .proof-row::after { opacity: 0; }
+}
+
+/* ============================================================
+   WIPE ANCHORING — section 03.
+   The divider starts at 100% (all purple, content dead centre)
+   and scrubs left. Each pane's content tracks the centre of the
+   strip that is still visible, so neither side drifts to an edge
+   or turns into the empty rectangle the brief warns about.
+   The max()/min() clamps stop the content sliding off once its
+   strip gets narrower than the content itself.
+   ============================================================ */
+
+.wipe-anchor {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* centre of the visible purple strip: wipe / 2 */
+.wipe-anchor--generic {
+  left: max(300px, calc(var(--wipe) / 2));
+}
+
+/* centre of the revealed dark strip: (100% + wipe) / 2 */
+.wipe-anchor--designed {
+  left: min(calc(100% - 300px), calc((100% + var(--wipe)) / 2));
+}
+
+@media (max-width: 900px) {
+  .wipe-anchor--generic { left: max(180px, calc(var(--wipe) / 2)); }
+  .wipe-anchor--designed { left: min(calc(100% - 180px), calc((100% + var(--wipe)) / 2)); }
 }
