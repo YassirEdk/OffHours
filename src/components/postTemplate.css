@@ -1,0 +1,506 @@
+/* Twenty post layouts, one shared frame. All units are container-relative
+   (cqi/cqw) so the preview at 560px and the html-to-image export at 1024px+
+   render identically. Long-CTA guards live on `.pt-cta` and inside each
+   template's overrides — every layout survives a 200-character CTA. */
+
+.pt {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 6px;
+  isolation: isolate;
+  color: #fff;
+  background: #111;
+  container-type: inline-size;
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.pt-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 0;
+}
+
+.pt-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.55) 62%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.pt-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 6cqi;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.pt-hook {
+  font-family: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 900;
+  font-variation-settings: "wdth" 100, "wght" 900;
+  font-size: clamp(1.4rem, 11cqi, 4.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin: 0;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pt-cta {
+  margin: 3cqi 0 0 0;
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  font-size: clamp(0.72rem, 2.8cqi, 1.05rem);
+  line-height: 1.25;
+  color: #fff;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pt-logo {
+  position: absolute;
+  z-index: 3;
+  bottom: 5.5%;
+  right: 5.5%;
+  width: 14%;
+  height: auto;
+  max-height: 14%;
+  object-fit: contain;
+}
+
+.pt-brand {
+  position: absolute;
+  z-index: 3;
+  bottom: 5.5%;
+  right: 5.5%;
+  font-weight: 700;
+  font-size: 3.2cqi;
+  letter-spacing: 0.05em;
+}
+
+/* T01 — Editorial */
+.pt-01 .pt-tick {
+  display: block;
+  width: 4.7cqi;
+  height: 0.4cqi;
+  margin-bottom: 2.5cqi;
+}
+.pt-01 .pt-cta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.9cqi;
+  max-width: 90%;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.pt-01 .pt-arrow { font-weight: 700; font-size: 3cqi; flex-shrink: 0; }
+.pt-01 .pt-cta-text {
+  border-bottom: 0.2cqi solid;
+  padding-bottom: 0.2cqi;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* T02 — Center hero, pill CTA */
+.pt-02 .pt-veil { background: rgba(0, 0, 0, 0.4); }
+.pt-02 .pt-stage {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 8cqi;
+  gap: 4cqi;
+}
+.pt-02 .pt-hook { text-align: center; }
+.pt-02 .pt-cta {
+  margin: 0;
+  padding: 2cqi 4cqi;
+  border-radius: 999px;
+  font-weight: 600;
+  max-width: 90%;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.pt-02 .pt-brand, .pt-02 .pt-logo { bottom: auto; top: 5cqi; right: 50%; transform: translateX(50%); }
+
+/* T03 — Top bar */
+.pt-03 .pt-top {
+  position: absolute;
+  z-index: 3;
+  top: 0; left: 0; right: 0;
+  padding: 3cqi 5cqi;
+  color: #111;
+  font-weight: 800;
+  font-size: 2.4cqi;
+  letter-spacing: 0.12em;
+}
+
+/* T04 — Diagonal split */
+.pt-04 .pt-stage { max-width: 68%; padding: 6cqi; justify-content: center; }
+.pt-04 .pt-hook { font-size: clamp(1.3rem, 9.5cqi, 3.4rem); }
+
+/* T05 — Corner card */
+.pt-05 .pt-stage { justify-content: space-between; }
+.pt-05 .pt-hook { max-width: 85%; }
+.pt-05 .pt-card {
+  align-self: flex-end;
+  background: #fff;
+  color: #111;
+  padding: 3cqi 4cqi;
+  border-radius: 6px;
+  max-width: 78%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+.pt-05 .pt-card .pt-cta { color: #111; font-weight: 600; margin: 0; }
+
+/* T06 — Sidebar rail */
+.pt-06 .pt-rail { position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: 1.5cqi; }
+.pt-06 .pt-stage { padding-left: 8cqi; max-width: 72%; }
+.pt-06 .pt-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 2.2cqi;
+  font-weight: 700;
+  margin: 0 0 2.5cqi 0;
+}
+
+/* T07 — Bottom gradient (uses defaults) */
+
+/* T08 — Ticker footer */
+.pt-08 .pt-stage { padding-bottom: 14cqi; }
+.pt-08 .pt-footer {
+  position: absolute;
+  z-index: 3;
+  left: 0; right: 0; bottom: 0;
+  background: #111;
+  color: #fff;
+  padding: 3cqi 6cqi;
+  display: flex;
+  gap: 2cqi;
+  align-items: center;
+  font-size: 2.4cqi;
+  font-weight: 600;
+}
+.pt-08 .pt-footer .pt-cta {
+  margin: 0;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* T09 — Ribbon corner */
+.pt-09 .pt-ribbon {
+  position: absolute;
+  z-index: 3;
+  top: 6cqi;
+  left: -12cqi;
+  width: 44cqi;
+  color: #111;
+  text-align: center;
+  padding: 1.2cqi 0;
+  transform: rotate(-45deg);
+  font-weight: 800;
+  font-size: 2.2cqi;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pt-09 .pt-cta {
+  border-top: 0.2cqi solid rgba(255, 255, 255, 0.3);
+  padding-top: 2.5cqi;
+}
+
+/* T10 — Outline frame */
+.pt-10 .pt-frame {
+  position: absolute;
+  inset: 4cqi;
+  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.pt-10 .pt-stage {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 10cqi;
+}
+.pt-10 .pt-hook {
+  text-align: center;
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+.pt-10 .pt-rule { display: block; width: 8cqi; height: 1px; margin: 3cqi auto; }
+.pt-10 .pt-cta {
+  text-align: center;
+  font-size: clamp(0.65rem, 2.4cqi, 0.9rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* T11 — Magazine drop-cap */
+.pt-11 .pt-hook {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.pt-11 .pt-hook::first-letter { color: var(--dc-color, #D8FF3E); font-size: 1.4em; }
+.pt-11 .pt-cta { font-family: Georgia, serif; font-style: italic; opacity: 0.9; }
+
+/* T12 — Sticker CTA */
+.pt-12 .pt-sticker {
+  position: absolute;
+  z-index: 3;
+  top: 10cqi;
+  right: 6cqi;
+  padding: 3cqi 4cqi;
+  transform: rotate(6deg);
+  max-width: 44%;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+.pt-12 .pt-sticker .pt-cta {
+  color: #111;
+  font-weight: 700;
+  font-size: clamp(0.68rem, 2.4cqi, 0.9rem);
+  margin: 0;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}
+.pt-12 .pt-stage { padding-right: 30%; }
+
+/* T13 — Vertical hook */
+.pt-13 .pt-vert {
+  position: absolute;
+  z-index: 3;
+  left: 6cqi;
+  top: 6cqi;
+  bottom: 6cqi;
+  display: flex;
+  align-items: center;
+}
+.pt-13 .pt-vert .pt-hook {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: clamp(1.4rem, 9cqi, 3.5rem);
+  text-align: right;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  max-height: 100%;
+}
+.pt-13 .pt-stage {
+  align-items: flex-end;
+  padding-left: 22cqi;
+}
+.pt-13 .pt-cta { text-align: right; max-width: 100%; }
+
+/* T14 — Two-tone block */
+.pt-14 .pt-stage { display: none; }
+.pt-14 .pt-block {
+  position: absolute;
+  z-index: 3;
+  left: 0; right: 0; bottom: 0;
+  padding: 5cqi 6cqi;
+  color: #111;
+}
+.pt-14 .pt-block .pt-hook {
+  color: #111;
+  font-size: clamp(1.3rem, 7.5cqi, 2.8rem);
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.pt-14 .pt-block .pt-cta {
+  color: #111;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2cqi;
+}
+.pt-14 .pt-logo, .pt-14 .pt-brand { top: 5cqi; bottom: auto; left: 5cqi; right: auto; }
+
+/* T15 — Newspaper caption */
+.pt-15 .pt-caption {
+  border-top: 3px double #fff;
+  padding-top: 3cqi;
+}
+.pt-15 .pt-hook {
+  font-family: "Times New Roman", Georgia, serif;
+  font-weight: 400;
+  font-style: italic;
+  font-size: clamp(1.2rem, 7.5cqi, 2.4rem);
+  line-height: 1.05;
+}
+.pt-15 .pt-cta {
+  font-family: "Inter", sans-serif;
+  font-size: clamp(0.65rem, 2.2cqi, 0.85rem);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* T16 — Neon glow */
+.pt-16 .pt-stage { justify-content: center; padding: 8cqi; }
+.pt-16 .pt-hook { line-height: 1; }
+.pt-16 .pt-cta {
+  align-self: flex-start;
+  padding: 2cqi 3cqi;
+  border: 1px solid;
+  margin-top: 4cqi;
+  max-width: 92%;
+}
+
+/* T17 — Framed portrait */
+.pt-17 { padding: 5cqi; box-sizing: border-box; background: #111; }
+.pt-17 .pt-frame-outer { position: absolute; inset: 0; z-index: 0; background: #111; }
+.pt-17 .pt-bg { inset: 5cqi; width: auto; height: auto; }
+.pt-17 .pt-veil { inset: 5cqi; }
+.pt-17 .pt-stage { padding: 10cqi; }
+.pt-17 .pt-hook { font-size: clamp(1.3rem, 8cqi, 3rem); }
+.pt-17 .pt-brand-bottom { bottom: 1.5cqi; }
+
+/* T18 — Bottom pill */
+.pt-18 .pt-stage { padding-bottom: 20cqi; }
+.pt-18 .pt-pill {
+  position: absolute;
+  z-index: 3;
+  left: 5cqi; right: 5cqi; bottom: 5cqi;
+  background: #fff;
+  color: #111;
+  border-radius: 999px;
+  padding: 2cqi 3cqi 2cqi 2cqi;
+  display: flex;
+  align-items: center;
+  gap: 3cqi;
+}
+.pt-18 .pt-pill-arrow {
+  flex: 0 0 auto;
+  color: #111;
+  width: 8cqi;
+  height: 8cqi;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 3.5cqi;
+}
+.pt-18 .pt-pill .pt-cta {
+  margin: 0;
+  color: #111;
+  font-weight: 600;
+  flex: 1 1 auto;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.pt-18 .pt-logo, .pt-18 .pt-brand { top: 5cqi; bottom: auto; }
+
+/* T19 — Numbered mirror */
+.pt-19 .pt-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 3cqi;
+  margin-top: 3cqi;
+}
+.pt-19 .pt-num {
+  flex: 0 0 auto;
+  color: #111;
+  width: 10cqi;
+  height: 10cqi;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  font-weight: 900;
+  font-size: 3.5cqi;
+}
+.pt-19 .pt-row .pt-cta { flex: 1 1 auto; margin: 0; }
+
+/* T20 — Split panel */
+.pt-20 { display: grid; grid-template-columns: 55% 45%; padding: 0; }
+.pt-20 .pt-split-image { position: relative; overflow: hidden; }
+.pt-20 .pt-split-image .pt-bg { position: absolute; }
+.pt-20 .pt-split-panel {
+  background: #111;
+  padding: 6cqi;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.pt-20 .pt-stage {
+  position: static;
+  padding: 0;
+}
+.pt-20 .pt-hook { font-size: clamp(1.1rem, 6cqi, 2.2rem); }
+.pt-20 .pt-brand { position: static; }
+
+/* Per-template logo overrides — same signature scale (~9-12% wide) but
+   positioned to fit each layout's composition. */
+
+/* T10 — centered under the outline frame */
+.pt-10 .pt-logo--center {
+  position: absolute;
+  z-index: 3;
+  bottom: 8cqi;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18%;
+  height: auto;
+  max-height: 18%;
+  object-fit: contain;
+  right: auto;
+}
+.pt-10 .pt-brand--center {
+  position: absolute;
+  z-index: 3;
+  bottom: 8cqi;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  font-size: 2.4cqi;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+/* T17 — logo sits centered under the frame edge */
+.pt-17 .pt-logo--frame {
+  position: absolute;
+  z-index: 3;
+  bottom: 1cqi;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14%;
+  height: auto;
+  max-height: 6cqi;
+  object-fit: contain;
+  right: auto;
+}
+
+/* T20 — logo top of the text panel, larger since panel is narrow */
+.pt-20 .pt-logo--panel {
+  position: static;
+  align-self: flex-start;
+  width: 32%;
+  height: auto;
+  max-height: 14%;
+  object-fit: contain;
+}

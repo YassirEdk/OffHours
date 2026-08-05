@@ -1450,17 +1450,54 @@ a:hover > .logo-mark .logo-hand {
    Mirrors what canvas draws on Download: full-bleed photo, bottom-up dark
    gradient, headline+CTA in the lower half, logo top-right on a white plate.
    Container-query units keep the preview readable at any scale. */
-.results-composite {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 1 / 1;
+.results-composite,
+.results-composite-wrap {
+  /* Preview wrapper — the PostTemplate inside sets its own aspect-ratio and
+     container-type. Cap at 560px so it stays sensible in the results grid;
+     html-to-image snapshots this node at 2x pixelRatio on Download. */
   width: 100%;
-  /* The preview IS the export — size it big enough that the layout reads
-     the way it will on Instagram. Caps at 560px so it stays sensible in the
-     grid. */
   max-width: 560px;
-  container-type: inline-size;
+}
+
+/* All-layouts picker — tiles are live PostTemplate renders, container
+   queries handle the downscale automatically. Click to pick, the outer
+   preview and the eventual PNG both use it. */
+.template-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  max-width: 560px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
+}
+.template-gallery-tile {
+  position: relative;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.template-gallery-tile:hover { transform: scale(1.02); border-color: rgba(255, 255, 255, 0.35); }
+.template-gallery-tile.is-active { border-color: var(--accent); }
+.template-gallery-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 4;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font: 600 10px/1 "Inter", sans-serif;
+  padding: 3px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+}
+.template-gallery-tile.is-active .template-gallery-badge {
+  background: var(--accent);
+  color: #111;
 }
 /* Only match the background photo (first img child), not the logo — the
    logo is also a direct-child img and was inheriting `inset: 0` here,

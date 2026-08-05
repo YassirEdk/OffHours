@@ -1,10 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { toPng } from "html-to-image";
 import { usePack, usePackContext } from "@/context/PackContext";
 import { useBrand } from "@/context/BrandContext";
 import { GOAL_LABEL, PLATFORM_LABEL, type Caption } from "@/lib/pack";
 import { packToText } from "@/lib/export";
 import { generateCaptionImage } from "@/lib/generateImage";
+import { PostTemplate, TEMPLATE_COUNT, pickTemplate } from "./PostTemplate";
 
 /* A plain readable view of the generated pack: brief at the top, brand
    settings, then each of the five ideas with its three captions and hashtag
@@ -104,6 +106,10 @@ export function PackResults() {
                   businessName={brief.name}
                   businessType={brief.business}
                   niche={brief.niche}
+                  /* Stable per (idea, caption) so the same post keeps its layout
+                     across re-renders and image regenerations; a new caption or
+                     a new idea rolls a different one. */
+                  templateSeed={i * 31 + ci * 7}
                 />
               ))}
             </div>
@@ -273,6 +279,7 @@ function CaptionCard({
   businessName,
   businessType,
   niche,
+  templateSeed,
 }: {
   cap: Caption;
   label: string;
@@ -280,7 +287,15 @@ function CaptionCard({
   businessName: string;
   businessType: string;
   niche: string;
+  templateSeed: number;
 }) {
+  /* Which of the 20 layouts to render. `pickTemplate` is deterministic so
+     the preview and the download always agree, and a Regenerate keeps the
+     layout — only the FLUX background rerolls. A per-card override lets the
+     user cycle layouts without regenerating the (paid) image. */
+  const [templateOverride, setTemplateOverride] = useState<number | null>(null);
+  const template = templateOverride ?? pickTemplate(templateSeed);
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [imageState, setImageState] = useState<
     | { status: "idle" }
@@ -326,108 +341,34 @@ function CaptionCard({
     }
   };
 
-  /* Composite the background + text overlay + logo into a single PNG.
-     Everything is proportional to a 1024 canvas so scaling stays sane.
-     The download and the DOM preview are laid out the same way, on purpose. */
+  /* Snapshot the preview node into a PNG — html-to-image serialises the DOM
+     into an SVG <foreignObject>, rasterises it in a canvas and hands us a data
+     URL. `pixelRatio` upscales so a 560px preview exports at 1120px, matching
+     what Instagram's feed compresses to. Fonts must be ready first — the
+     serialiser bakes computed styles at snapshot time, so a mid-swap font
+     falls back to system silently. */
   const downloadImage = async () => {
-    if (imageState.status !== "ready") return;
-    const S = 1024;
-    const canvas = document.createElement("canvas");
-    canvas.width = S;
-    canvas.height = S;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    /* Wait for Archivo + Inter to be rasterized before drawing — canvas 2D
-       has no font-loading callback, so if the fonts aren't ready yet the
-       text falls back to the system default silently. */
+    if (imageState.status !== "ready" || !previewRef.current) return;
     if (document.fonts?.ready) await document.fonts.ready;
-
-    /* 1. Background photo. */
-    const bg = await loadImage(imageState.dataUrl);
-    ctx.drawImage(bg, 0, 0, S, S);
-
-    /* 2. Bottom-up gradient scrim — pulls the eye to the text and keeps
-       white type readable no matter what photo landed. */
-    const grad = ctx.createLinearGradient(0, S * 0.35, 0, S);
-    grad.addColorStop(0, "rgba(0,0,0,0)");
-    grad.addColorStop(0.55, "rgba(0,0,0,0.55)");
-    grad.addColorStop(1, "rgba(0,0,0,0.9)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, S, S);
-
-    /* 3. Headline — auto-fit: try larger sizes first, drop down until the
-       text fits in at most 4 lines within the safe area. */
-    const padX = 60;
-    const textMaxW = S - padX * 2;
-    const { lines, fontSize, lineHeight } = fitHeadline(ctx, cap.hook, textMaxW, S);
-
-    ctx.fillStyle = "#ffffff";
-    ctx.textBaseline = "top";
-    const totalH = lines.length * lineHeight;
-    let y = S - 220 - totalH;
-    for (const line of lines) {
-      /* Archivo — the site's display face. 900 weight is the boldest. */
-      ctx.font = `900 ${fontSize}px "Archivo", "Helvetica Neue", Arial, sans-serif`;
-      ctx.fillText(line, padX, y);
-      y += lineHeight;
-    }
-
-    /* 3b. Small brand-color accent bar above the headline — editorial mark
-       that ties the composition together and gives the brand color a place
-       to live even when the CTA arrow isn't enough of a presence. */
-    const ctaColor = primaryColor?.trim() || "#D8FF3E";
-    const accentBarY = S - 220 - totalH - 24;
-    ctx.fillStyle = ctaColor;
-    ctx.fillRect(padX, accentBarY, 48, 4);
-
-    /* 4. CTA — editorial style: coloured arrow, Inter text, coloured
-       underline. No pill, no rounded box. Feels like a magazine footer. */
-    const ctaFontSize = 26;
-    const arrowFontSize = 30;
-    ctx.textBaseline = "alphabetic";
-    const ctaY = S - 90;
-    ctx.font = `700 ${arrowFontSize}px "Inter", "Helvetica Neue", Arial, sans-serif`;
-    ctx.fillStyle = ctaColor;
-    ctx.fillText("→", padX, ctaY);
-    const arrowW = ctx.measureText("→ ").width;
-    ctx.font = `500 ${ctaFontSize}px "Inter", "Helvetica Neue", Arial, sans-serif`;
-    ctx.fillStyle = "#ffffff";
-    const ctaText = truncateForPill(cap.cta, 70);
-    ctx.fillText(ctaText, padX + arrowW, ctaY);
-    const textW = ctx.measureText(ctaText).width;
-    ctx.fillStyle = ctaColor;
-    ctx.fillRect(padX + arrowW, ctaY + 8, textW, 2);
-
-    /* 5. Logo bottom-right, small — sits like a signature rather than a
-       stamp. No plate; drawn directly on the photo. */
-    if (logoDataUrl) {
-      try {
-        const logo = await loadImage(logoDataUrl);
-        const boxSize = 96;
-        const boxX = S - padX - boxSize;
-        const boxY = S - padX - boxSize;
-        const scale = Math.min(boxSize / logo.width, boxSize / logo.height);
-        const drawW = logo.width * scale;
-        const drawH = logo.height * scale;
-        const drawX = boxX + (boxSize - drawW) / 2;
-        const drawY = boxY + (boxSize - drawH) / 2;
-        ctx.drawImage(logo, drawX, drawY, drawW, drawH);
-      } catch {
-        /* Bad logo file — skip silently rather than break the download. */
-      }
-    }
-
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
+    try {
+      const dataUrl = await toPng(previewRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: "#111",
+      });
       const a = document.createElement("a");
-      a.href = url;
+      a.href = dataUrl;
       a.download = `${businessName || "post"}-${label}.png`;
       a.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
+    } catch (err) {
+      setImageState({
+        status: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
   };
+
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   return (
     <article className="results-caption">
@@ -471,60 +412,54 @@ function CaptionCard({
         ) : null}
         {imageState.status === "ready" ? (
           <>
-            {/* Preview mirrors the downloaded PNG: same layout, same overlay,
-                same CTA colour, same logo placement. Canvas re-composites at
-                1024px on Download so the file matches this preview. */}
-            <div
-              className="results-generated-image results-composite"
-              role="img"
-              aria-label={cap.hook}
-            >
-              <img className="composite-bg" src={imageState.dataUrl} alt="" />
-              <div className="composite-scrim" aria-hidden="true" />
-              {logoDataUrl ? (
-                <img
-                  className="composite-logo composite-logo--bare"
-                  src={logoDataUrl}
-                  alt=""
-                  aria-hidden="true"
-                />
-              ) : null}
-              <div className="composite-text">
-                <span
-                  className="composite-accent-bar"
-                  style={{ backgroundColor: primaryColor?.trim() || "var(--accent)" }}
-                  aria-hidden="true"
-                />
-                <p className="composite-hook">{cap.hook}</p>
-                <p className="composite-cta composite-cta--editorial">
-                  <span
-                    className="composite-cta-arrow"
-                    style={{ color: primaryColor?.trim() || "var(--accent)" }}
-                  >
-                    →
-                  </span>
-                  <span
-                    className="composite-cta-text"
-                    style={{
-                      borderBottomColor: primaryColor?.trim() || "var(--accent)",
-                    }}
-                  >
-                    {truncateForPill(cap.cta, 70)}
-                  </span>
-                </p>
-              </div>
+            {/* The preview node IS the export — html-to-image snapshots this
+                same DOM on Download, so what you see is exactly what's saved. */}
+            <div ref={previewRef} className="results-generated-image results-composite-wrap">
+              <PostTemplate
+                template={template}
+                hook={cap.hook}
+                cta={cap.cta}
+                bgSrc={imageState.dataUrl}
+                logoSrc={logoDataUrl}
+                primaryColor={primaryColor}
+                businessName={businessName}
+              />
             </div>
             <p className="mono-label mt-2 opacity-60">
-              Rendered at {imageState.size} · text overlaid client-side
+              Rendered at {imageState.size} · template {String(template).padStart(2, "0")} / {TEMPLATE_COUNT}
             </p>
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 mt-3 flex-wrap">
               <button type="button" className="chip" onClick={downloadImage}>
                 Download
               </button>
+              <button
+                type="button"
+                className="chip"
+                onClick={() => setGalleryOpen((v) => !v)}
+                aria-expanded={galleryOpen}
+              >
+                {galleryOpen ? "Hide layouts" : "Show all layouts"}
+              </button>
               <button type="button" className="chip" onClick={generateImage}>
-                Regenerate
+                Regenerate image
               </button>
             </div>
+            {galleryOpen ? (
+              <TemplateGallery
+                current={template}
+                onPick={(n) => {
+                  setTemplateOverride(n);
+                  setGalleryOpen(false);
+                }}
+                onClose={() => setGalleryOpen(false)}
+                hook={cap.hook}
+                cta={cap.cta}
+                bgSrc={imageState.dataUrl}
+                logoSrc={logoDataUrl}
+                {...(primaryColor !== undefined ? { primaryColor } : {})}
+                businessName={businessName}
+              />
+            ) : null}
           </>
         ) : null}
       </div>
@@ -532,95 +467,94 @@ function CaptionCard({
   );
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("image load failed"));
-    img.src = src;
-  });
-}
+/* Modal grid of all 20 layouts — each tile is a live PostTemplate rendered
+   with the caption's real content, so what you pick is what the export will
+   look like. Fixed overlay so tiles have real estate; Escape or backdrop
+   closes it. */
+function TemplateGallery({
+  current,
+  onPick,
+  onClose,
+  hook,
+  cta,
+  bgSrc,
+  logoSrc,
+  primaryColor,
+  businessName,
+}: {
+  current: number;
+  onPick: (n: number) => void;
+  onClose: () => void;
+  hook: string;
+  cta: string;
+  bgSrc: string;
+  logoSrc: string | null;
+  primaryColor?: string;
+  businessName: string;
+}) {
+  const templates = Array.from({ length: TEMPLATE_COUNT }, (_, i) => i + 1);
 
-/* Try successively smaller headline sizes until the wrapped text fits in
-   the safe area at 4 lines or fewer. Instagram feed posts get scrolled fast,
-   so a 5-line headline nobody reads is worse than a 3-line one everyone can. */
-function fitHeadline(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  canvasSize: number,
-): { lines: string[]; fontSize: number; lineHeight: number } {
-  const maxLines = 4;
-  const sizes = [96, 84, 76, 68, 60, 52, 46, 40];
-  for (const size of sizes) {
-    ctx.font = `900 ${size}px "Archivo", "Helvetica Neue", Arial, sans-serif`;
-    const lines = wrapText(ctx, text, maxWidth);
-    const lineHeight = Math.round(size * 1.08);
-    const totalH = lines.length * lineHeight;
-    /* Also cap total height so the block doesn't collide with the CTA. */
-    if (lines.length <= maxLines && totalH < canvasSize * 0.55) {
-      return { lines, fontSize: size, lineHeight };
-    }
-  }
-  /* Fallback — force-fit at the smallest size, accepting whatever line count. */
-  const size = sizes[sizes.length - 1];
-  ctx.font = `800 ${size}px "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif`;
-  return {
-    lines: wrapText(ctx, text, maxWidth).slice(0, maxLines),
-    fontSize: size,
-    lineHeight: Math.round(size * 1.08),
-  };
-}
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
 
-/* Trim a CTA that's too long for the pill — a truncated CTA reads worse
-   than a shorter one, so try to cut at a natural word break. */
-function truncateForPill(cta: string, max: number): string {
-  const trimmed = cta.trim();
-  if (trimmed.length <= max) return trimmed;
-  const slice = trimmed.slice(0, max);
-  const lastSpace = slice.lastIndexOf(" ");
-  return (lastSpace > max * 0.6 ? slice.slice(0, lastSpace) : slice) + "…";
-}
-
-/* Break a string into lines that each fit within maxWidth in the given ctx.
-   Greedy: consume as many words per line as fit; a single word longer than
-   the width gets its own line and overflows rather than being letter-split
-   (letter-splitting a caption reads worse than a tiny bit of overflow). */
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (ctx.measureText(candidate).width <= maxWidth) {
-      line = candidate;
-    } else {
-      if (line) lines.push(line);
-      line = word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+  return (
+    <div
+      className="template-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose a layout"
+      onClick={onClose}
+    >
+      <div className="template-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="template-modal-head">
+          <h3 className="template-modal-title">Pick a layout</h3>
+          <p className="template-modal-sub">20 designs · click to apply · Esc to close</p>
+          <button
+            type="button"
+            className="template-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="template-gallery" role="listbox">
+          {templates.map((t) => {
+            const active = t === current;
+            return (
+              <button
+                key={t}
+                type="button"
+                className={`template-gallery-tile${active ? " is-active" : ""}`}
+                onClick={() => onPick(t)}
+                aria-pressed={active}
+                aria-label={`Layout ${String(t).padStart(2, "0")}`}
+              >
+                <PostTemplate
+                  template={t}
+                  hook={hook}
+                  cta={cta}
+                  bgSrc={bgSrc}
+                  logoSrc={logoSrc}
+                  {...(primaryColor !== undefined ? { primaryColor } : {})}
+                  businessName={businessName}
+                />
+                <span className="template-gallery-badge">{String(t).padStart(2, "0")}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
