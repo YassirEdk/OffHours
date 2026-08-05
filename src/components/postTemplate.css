@@ -48,14 +48,17 @@
   font-family: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 900;
   font-variation-settings: "wdth" 100, "wght" 900;
-  font-size: clamp(1.4rem, 11cqi, 4.2rem);
+  /* Pure cqi — no clamp — so preview and export scale identically.
+     No text-wrap: balance — Chrome's balance algorithm produces different
+     line breaks at different render sizes even at identical proportions,
+     which was making the preview and export wrap differently. */
+  font-size: 11cqi;
   line-height: 0.95;
   letter-spacing: -0.03em;
   color: #fff;
   margin: 0;
-  text-wrap: balance;
   overflow-wrap: break-word;
-  hyphens: auto;
+  word-break: normal;
   display: -webkit-box;
   -webkit-line-clamp: 4;
   line-clamp: 4;
@@ -67,10 +70,9 @@
   margin: 3cqi 0 0 0;
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 500;
-  font-size: clamp(0.72rem, 2.8cqi, 1.05rem);
+  font-size: 2.8cqi;
   line-height: 1.25;
   color: #fff;
-  text-wrap: balance;
   overflow-wrap: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -161,7 +163,7 @@
 
 /* T04 — Diagonal split */
 .pt-04 .pt-stage { max-width: 68%; padding: 6cqi; justify-content: center; }
-.pt-04 .pt-hook { font-size: clamp(1.3rem, 9.5cqi, 3.4rem); }
+.pt-04 .pt-hook { font-size: 9.5cqi; }
 
 /* T05 — Corner card */
 .pt-05 .pt-stage { justify-content: space-between; }
@@ -258,7 +260,7 @@
 .pt-10 .pt-rule { display: block; width: 8cqi; height: 1px; margin: 3cqi auto; }
 .pt-10 .pt-cta {
   text-align: center;
-  font-size: clamp(0.65rem, 2.4cqi, 0.9rem);
+  font-size: 2.4cqi;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -286,37 +288,36 @@
 .pt-12 .pt-sticker .pt-cta {
   color: #111;
   font-weight: 700;
-  font-size: clamp(0.68rem, 2.4cqi, 0.9rem);
+  font-size: 2.4cqi;
   margin: 0;
   -webkit-line-clamp: 5;
   line-clamp: 5;
 }
 .pt-12 .pt-stage { padding-right: 30%; }
 
-/* T13 — Vertical hook */
+/* T13 — Left-rail poster. A thick accent bar runs floor-to-ceiling on the
+   left; the hook fills the rest as a big condensed headline. Distinctive
+   without depending on writing-mode tricks that break for long hooks. */
 .pt-13 .pt-vert {
   position: absolute;
   z-index: 3;
-  left: 6cqi;
-  top: 6cqi;
-  bottom: 6cqi;
-  display: flex;
-  align-items: center;
-}
-.pt-13 .pt-vert .pt-hook {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: clamp(1.4rem, 9cqi, 3.5rem);
-  text-align: right;
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-  max-height: 100%;
+  left: 0; top: 0; bottom: 0;
+  width: 6cqi;
+  background: var(--acc, #d8ff3e);
 }
 .pt-13 .pt-stage {
-  align-items: flex-end;
-  padding-left: 22cqi;
+  padding: 8cqi 8cqi 8cqi 14cqi;
+  justify-content: flex-end;
+  align-items: flex-start;
 }
-.pt-13 .pt-cta { text-align: right; max-width: 100%; }
+.pt-13 .pt-stage .pt-hook {
+  font-size: 9cqi;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  max-width: 78%;
+  text-align: left;
+}
+.pt-13 .pt-cta { text-align: left; max-width: 78%; margin-top: 3cqi; }
 
 /* T14 — Two-tone block */
 .pt-14 .pt-stage { display: none; }
@@ -329,7 +330,7 @@
 }
 .pt-14 .pt-block .pt-hook {
   color: #111;
-  font-size: clamp(1.3rem, 7.5cqi, 2.8rem);
+  font-size: 7.5cqi;
   -webkit-line-clamp: 3;
   line-clamp: 3;
 }
@@ -350,12 +351,12 @@
   font-family: "Times New Roman", Georgia, serif;
   font-weight: 400;
   font-style: italic;
-  font-size: clamp(1.2rem, 7.5cqi, 2.4rem);
+  font-size: 7.5cqi;
   line-height: 1.05;
 }
 .pt-15 .pt-cta {
   font-family: "Inter", sans-serif;
-  font-size: clamp(0.65rem, 2.2cqi, 0.85rem);
+  font-size: 2.2cqi;
   text-transform: uppercase;
   letter-spacing: 0.15em;
 }
@@ -371,14 +372,102 @@
   max-width: 92%;
 }
 
-/* T17 — Framed portrait */
-.pt-17 { padding: 5cqi; box-sizing: border-box; background: #111; }
-.pt-17 .pt-frame-outer { position: absolute; inset: 0; z-index: 0; background: #111; }
-.pt-17 .pt-bg { inset: 5cqi; width: auto; height: auto; }
-.pt-17 .pt-veil { inset: 5cqi; }
-.pt-17 .pt-stage { padding: 10cqi; }
-.pt-17 .pt-hook { font-size: clamp(1.3rem, 8cqi, 3rem); }
-.pt-17 .pt-brand-bottom { bottom: 1.5cqi; }
+/* T17 — Gallery print. A dark card with three horizontal bands:
+     1. Masthead (top) — brand or logo, centered, with an accent rule under it
+     2. Photo (middle) — the biggest band, full-bleed within the frame
+     3. Caption (bottom) — big hook + small CTA in the negative space
+   No overlays sit on the photo; everything reads as a printed gallery card. */
+.pt-17 { background: #0d0d0f; box-sizing: border-box; }
+.pt-17 .pt-frame-outer { position: absolute; inset: 0; z-index: 0; background: #0d0d0f; }
+
+/* Masthead band */
+.pt-17 .pt-17-mast {
+  position: absolute;
+  z-index: 3;
+  top: 0; left: 0; right: 0;
+  height: 14cqi;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqi;
+  padding: 3cqi 6cqi 0;
+}
+.pt-17 .pt-17-brand {
+  font-family: "Archivo", "Helvetica Neue", sans-serif;
+  font-weight: 800;
+  font-size: 3.4cqi;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #fff;
+  text-align: center;
+  line-height: 1;
+}
+.pt-17 .pt-17-logo {
+  height: 6cqi;
+  max-width: 55%;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+.pt-17 .pt-17-rule {
+  display: block;
+  width: 10cqi;
+  height: 0.35cqi;
+  border-radius: 999px;
+}
+
+/* Photo band (middle) */
+.pt-17 .pt-bg {
+  position: absolute;
+  top: 15cqi; left: 5cqi; right: 5cqi; bottom: 40cqi;
+  width: auto;
+  height: auto;
+  object-fit: cover;
+}
+.pt-17 .pt-veil {
+  position: absolute;
+  top: 15cqi; left: 5cqi; right: 5cqi; bottom: 40cqi;
+  background: none;
+  z-index: 1;
+}
+
+/* Caption band (bottom) */
+.pt-17 .pt-17-caption {
+  position: absolute;
+  z-index: 3;
+  left: 0; right: 0; bottom: 0;
+  height: 38cqi;
+  padding: 5cqi 6cqi 6cqi;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 3cqi;
+}
+.pt-17 .pt-17-caption .pt-hook {
+  color: #fff;
+  font-family: "Archivo", "Helvetica Neue", sans-serif;
+  font-weight: 900;
+  font-size: 7.5cqi;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  text-align: left;
+  max-width: 100%;
+}
+.pt-17 .pt-17-caption .pt-cta {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  font-size: 2.4cqi;
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  text-align: left;
+  max-width: 100%;
+}
 
 /* T18 — Bottom pill */
 .pt-18 .pt-stage { padding-bottom: 20cqi; }
@@ -435,6 +524,64 @@
 }
 .pt-19 .pt-row .pt-cta { flex: 1 1 auto; margin: 0; }
 
+/* -----------------------------------------------------------------------
+   Per-template overlap fixes — the default logo lives at bottom-right (14%
+   wide, 5.5% inset). Any layout whose hook or CTA also lives at the bottom
+   right needs either a capped max-width on the text or a relocated logo.
+   ----------------------------------------------------------------------- */
+
+/* T01 — CTA underline runs to the logo. Cap width so it stops short. */
+.pt-01 .pt-cta { max-width: 80%; }
+
+/* T05 — corner card sits bottom-right of the stage; logo would sit on it.
+   Move the logo to the top-left where it reads as a masthead. */
+.pt-05 .pt-logo, .pt-05 .pt-brand {
+  top: 5cqi; left: 5.5cqi; bottom: auto; right: auto;
+}
+
+/* T07 — default stage, cap the cta so it clears the bottom-right logo. */
+.pt-07 .pt-hook { max-width: 82%; }
+.pt-07 .pt-cta  { max-width: 82%; }
+
+/* T08 — ticker footer sits at bottom edge, default logo overlaps it.
+   Push the logo above the footer bar (footer is ~9cqi tall). */
+.pt-08 .pt-logo, .pt-08 .pt-brand {
+  bottom: 14cqi;
+}
+
+/* T09 — CTA has a top rule and can be wide; keep it out of the logo. */
+.pt-09 .pt-hook { max-width: 82%; }
+.pt-09 .pt-cta  { max-width: 82%; }
+
+/* T11 — magazine layout, same reservation as T07. */
+.pt-11 .pt-hook { max-width: 82%; }
+.pt-11 .pt-cta  { max-width: 82%; }
+
+/* T12 — sticker is top-right; move the logo to bottom-left to balance and
+   keep both corners clean. */
+.pt-12 .pt-logo, .pt-12 .pt-brand {
+  right: auto; left: 5.5cqi;
+}
+
+/* T13 — vertical hook on the left, CTA is right-aligned along the bottom;
+   the default logo lands on top of it. Move the logo to the top-right. */
+.pt-13 .pt-logo, .pt-13 .pt-brand {
+  top: 5cqi; bottom: auto;
+}
+
+/* T15 — newspaper caption block; keep it inside the safe area. */
+.pt-15 .pt-caption { max-width: 82%; }
+
+/* T16 — neon CTA is pill-bordered and can stretch; cap it. */
+.pt-16 .pt-cta { max-width: 78%; }
+
+/* T19 — the numbered row runs full width and its CTA overlaps the logo.
+   Move the logo to top-right so the row can breathe. */
+.pt-19 .pt-logo, .pt-19 .pt-brand {
+  top: 5cqi; bottom: auto;
+}
+.pt-19 .pt-row { max-width: 100%; }
+
 /* T20 — Split panel */
 .pt-20 { display: grid; grid-template-columns: 55% 45%; padding: 0; }
 .pt-20 .pt-split-image { position: relative; overflow: hidden; }
@@ -450,7 +597,7 @@
   position: static;
   padding: 0;
 }
-.pt-20 .pt-hook { font-size: clamp(1.1rem, 6cqi, 2.2rem); }
+.pt-20 .pt-hook { font-size: 6cqi; }
 .pt-20 .pt-brand { position: static; }
 
 /* Per-template logo overrides — same signature scale (~9-12% wide) but

@@ -7,6 +7,7 @@ import { GOAL_LABEL, PLATFORM_LABEL, type Caption } from "@/lib/pack";
 import { packToText } from "@/lib/export";
 import { generateCaptionImage } from "@/lib/generateImage";
 import { PostTemplate, TEMPLATE_COUNT, pickTemplate } from "./PostTemplate";
+import { Logo } from "./Logo";
 
 /* A plain readable view of the generated pack: brief at the top, brand
    settings, then each of the five ideas with its three captions and hashtag
@@ -32,13 +33,18 @@ export function PackResults() {
   return (
     <div className="results-page">
       <header className="results-head">
-        <div>
-          <p className="mono-label">
-            {isExample ? "The example pack" : "Your generated pack"}
-          </p>
-          <h1 className="display-cond mt-2 text-[clamp(1.6rem,4vw,2.6rem)]">
-            {brief.name} — {brief.business}
-          </h1>
+        <div className="results-head-brand">
+          <Link to="/" aria-label="Offhours — back to home" className="results-head-logo">
+            <Logo name="Offhours" className="header-logo" />
+          </Link>
+          <div>
+            <p className="mono-label">
+              {isExample ? "The example pack" : "Your generated pack"}
+            </p>
+            <h1 className="display-cond mt-2 text-[clamp(1.6rem,4vw,2.6rem)]">
+              {brief.name} — {brief.business}
+            </h1>
+          </div>
         </div>
         <div className="results-head-actions">
           <button type="button" className="chip" onClick={copyAll}>
@@ -305,6 +311,7 @@ function CaptionCard({
   >({ status: "idle" });
   const { styleKeywords, primaryColor, imageDataUrl: logoDataUrl } = useBrand();
 
+
   const copy = async () => {
     const text = `${cap.hook}\n\n${cap.body}\n\n${cap.cta}`;
     try {
@@ -341,12 +348,10 @@ function CaptionCard({
     }
   };
 
-  /* Snapshot the preview node into a PNG — html-to-image serialises the DOM
-     into an SVG <foreignObject>, rasterises it in a canvas and hands us a data
-     URL. `pixelRatio` upscales so a 560px preview exports at 1120px, matching
-     what Instagram's feed compresses to. Fonts must be ready first — the
-     serialiser bakes computed styles at snapshot time, so a mid-swap font
-     falls back to system silently. */
+  /* Snapshot the preview node into a PNG. Preview and export use the same
+     DOM at the same rendered width, so cqi + wrap are identical; pixelRatio
+     2 gives the raster a 2× boost. Fonts must be ready first — the
+     serialiser bakes computed styles at snapshot time. */
   const downloadImage = async () => {
     if (imageState.status !== "ready" || !previewRef.current) return;
     if (document.fonts?.ready) await document.fonts.ready;

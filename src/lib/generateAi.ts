@@ -57,6 +57,14 @@ Return this JSON shape exactly:
 
 Use the brief's proof numbers (task, before, cost, who, client, took) concretely in the captions. Vague captions ("unlock the power of AI") are the thing to avoid — real numbers and real steps are the point.
 
+Voice rules — read carefully, these are the ones that make output sound written by a human rather than a template:
+  - Never place brief.who (or brief.name) as an appositive after "I" or "We". The string "I, Me,", "I, {name},", "We, the team,", or any "I, X,"/"We, X," construction is forbidden. If the sentence starts in first person, just say "I" or "We".
+  - brief.who describes who does the manual task. Refer to that person by role in the third person ("our office manager"), or fold it into the sentence naturally. Do not use it as the speaker's name.
+  - Do not emit template placeholder text of any kind: no "{name}", no "[Name]", no "Me" as a stand-in for a person, no "TBD".
+  - Prefer concrete verbs and specific nouns over marketing verbs ("enhance", "unlock", "leverage", "empower", "revolutionize", "elevate", "seamless", "cutting-edge", "game-changer") — avoid those entirely.
+  - Spell out whole numbers under ten in prose ("one day", not "1 day"). Keep numerals for money, percentages, and measurements.
+  - No em-dash-lists-of-adjectives, no rhetorical questions used as filler, no "In today's fast-paced world" openings.
+
 Tone: match brief.tone. Audience: brief.audience. Niche: brief.niche.`;
 
 export const generatePackAi = createServerFn({ method: "POST" })
@@ -102,6 +110,7 @@ export const generatePackAi = createServerFn({ method: "POST" })
       }
 
       const parsed = JSON.parse(content) as { ideas?: Idea[]; cadence?: ContentPack["cadence"] };
+      sanitizeVoice(parsed);
       const pack = validatePack(parsed, brief);
       if (!pack) {
         console.warn("[generatePackAi] response failed shape validation — using fallback");
@@ -113,6 +122,35 @@ export const generatePackAi = createServerFn({ method: "POST" })
       return generateDeterministic(brief);
     }
   });
+
+/* Strip patterns the model shouldn't have produced but sometimes does. The
+   worst offender is "I, {who}," / "We, {who}," — an appositive that reads as
+   an un-filled template placeholder. We also drop any literal "{...}" or
+   "[...]" placeholders the model may have echoed from the prompt. */
+function cleanCaption(text: string): string {
+  return text
+    /* "I, Me,", "I, John,", "We, the team," → "I" / "We" */
+    .replace(/\b(I|We)\s*,\s*[^,.!?\n]{1,40}?\s*,\s*/gi, "$1 ")
+    /* literal placeholder tokens */
+    .replace(/\{[^{}\n]{1,40}\}/g, "")
+    .replace(/\[[A-Z][^\]\n]{1,40}\]/g, "")
+    /* stray double spaces / spaces before punctuation from the strips above */
+    .replace(/ {2,}/g, " ")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .trim();
+}
+
+function sanitizeVoice(parsed: { ideas?: Idea[] }): void {
+  if (!Array.isArray(parsed.ideas)) return;
+  for (const idea of parsed.ideas) {
+    if (!Array.isArray(idea?.captions)) continue;
+    for (const cap of idea.captions as Caption[]) {
+      if (typeof cap.hook === "string") cap.hook = cleanCaption(cap.hook);
+      if (typeof cap.body === "string") cap.body = cleanCaption(cap.body);
+      if (typeof cap.cta === "string") cap.cta = cleanCaption(cap.cta);
+    }
+  }
+}
 
 /* Cheap runtime shape check. LLMs mostly follow JSON schemas but don't
    guarantee them, so refuse anything that would crash the renderer downstream

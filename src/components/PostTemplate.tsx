@@ -244,15 +244,14 @@ export function PostTemplate({
         </div>
       );
 
-    case 13: // Vertical hook
+    case 13: // Left-rail poster
       return (
         <div className={cls} role="img" aria-label={hook} style={style}>
           <Bg />
           <div className="pt-veil" />
-          <div className="pt-vert">
-            <h2 className="pt-hook">{hook}</h2>
-          </div>
+          <div className="pt-vert" style={{ background: accent }} />
           <div className="pt-stage">
+            <h2 className="pt-hook">{hook}</h2>
             <p className="pt-cta" style={{ color: accent }}>→ {cta}</p>
           </div>
           <Logo />
@@ -313,21 +312,24 @@ export function PostTemplate({
         </div>
       );
 
-    case 17: // Framed portrait
+    case 17: // Gallery print — masthead on top, photo, caption block
       return (
         <div className={cls} role="img" aria-label={hook} style={style}>
           <div className="pt-frame-outer" />
+          <div className="pt-17-mast">
+            {logoSrc ? (
+              <img className="pt-17-logo" src={logoSrc} alt="" aria-hidden="true" crossOrigin="anonymous" />
+            ) : (
+              <span className="pt-17-brand">{brand}</span>
+            )}
+            <span className="pt-17-rule" style={{ background: accent }} />
+          </div>
           <Bg />
           <div className="pt-veil" />
-          <div className="pt-stage">
+          <div className="pt-17-caption">
             <h2 className="pt-hook">{hook}</h2>
             <p className="pt-cta" style={{ color: accent }}>→ {cta}</p>
           </div>
-          {logoSrc ? (
-            <img className="pt-logo pt-logo--frame" src={logoSrc} alt="" aria-hidden="true" crossOrigin="anonymous" />
-          ) : (
-            <div className="pt-brand pt-brand-bottom">{brand}</div>
-          )}
         </div>
       );
 

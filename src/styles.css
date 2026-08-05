@@ -1413,6 +1413,27 @@ a:hover > .logo-mark .logo-hand {
   gap: 0.6rem;
   align-items: center;
 }
+.results-head-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.results-head-logo {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem 0.15rem 0;
+  border-right: 1px solid rgba(245, 243, 239, 0.14);
+  padding-right: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+@media (max-width: 520px) {
+  .results-head-logo {
+    border-right: none;
+    padding-right: 0;
+  }
+}
 .results-brief {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1611,9 +1632,11 @@ a:hover > .logo-mark .logo-hand {
    Container-query units keep the preview readable at any scale. */
 .results-composite,
 .results-composite-wrap {
-  /* Preview wrapper — the PostTemplate inside sets its own aspect-ratio and
-     container-type. Cap at 560px so it stays sensible in the results grid;
-     html-to-image snapshots this node at 2x pixelRatio on Download. */
+  /* Preview wrapper. .pt inside sets its own aspect-ratio 1:1 and
+     container-type inline-size, so it renders as a square at the wrapper's
+     width. html-to-image captures this exact DOM at pixelRatio 2 on
+     Download; because the wrap is deterministic (no text-wrap: balance)
+     and all sizing is pure cqi, the export is a true 2× rasterization. */
   width: 100%;
   max-width: 560px;
 }
@@ -1689,6 +1712,8 @@ a:hover > .logo-mark .logo-hand {
 .template-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-auto-rows: max-content;
+  align-items: start;
   gap: 16px;
   padding: 8px;
   background: rgba(255, 255, 255, 0.03);
@@ -1696,6 +1721,13 @@ a:hover > .logo-mark .logo-hand {
 }
 .template-gallery-tile {
   position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  /* grid items default to align-self: stretch, which fights aspect-ratio and
+     lets the row auto-size shorter than the item's intrinsic square. */
+  align-self: start;
+  justify-self: stretch;
   padding: 0;
   border: 2px solid transparent;
   background: transparent;
@@ -1704,6 +1736,21 @@ a:hover > .logo-mark .logo-hand {
   overflow: hidden;
   transition: transform 120ms ease, border-color 120ms ease;
 }
+/* Force the layout preview inside the tile to fill it and never overflow —
+   the tile owns the aspect ratio, PostTemplate just paints inside it. */
+.template-gallery-tile > .pt {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+/* At preview sizes (~220–320px wide) the clamp minimums on hook/cta text
+   (1.4rem / 0.72rem) kick in and blow the text out of the tile. Force pure
+   cqi in the gallery so the preview scales proportionally like the real
+   render at 1024px+. */
+.template-gallery-tile .pt-hook { font-size: 11cqi; }
+.template-gallery-tile .pt-cta  { font-size: 2.8cqi; }
+.template-gallery-tile .pt-04 .pt-hook { font-size: 9.5cqi; }
+.template-gallery-tile .pt-brand { font-size: 3.2cqi; }
 .template-gallery-tile:hover { transform: scale(1.02); border-color: rgba(255, 255, 255, 0.35); }
 .template-gallery-tile.is-active { border-color: var(--accent); }
 .template-gallery-badge {
