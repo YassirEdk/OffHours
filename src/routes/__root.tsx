@@ -11,6 +11,7 @@ import { type ReactNode } from "react";
 
 import { PackProvider } from "@/context/PackContext";
 import { BrandProvider } from "@/context/BrandContext";
+import { IntroOverlay } from "@/components/IntroOverlay";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -125,6 +126,7 @@ function RootComponent() {
           form on one route and the pack on another share one source. */}
       <PackProvider>
         <BrandProvider>
+          <IntroOverlay />
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
         </BrandProvider>

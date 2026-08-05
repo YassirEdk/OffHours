@@ -403,17 +403,176 @@ body {
 }
 .logo-word {
   letter-spacing: -0.02em;
+  background-image: linear-gradient(
+    90deg,
+    #d8ff3e 0%,
+    #3ef0d8 20%,
+    #4ea8ff 40%,
+    #a06bff 60%,
+    #ff6bd2 80%,
+    #d8ff3e 100%
+  );
+  background-size: 300% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+.logo:hover .logo-word,
+.logo:focus-visible .logo-word,
+a:hover > .logo .logo-word,
+a:focus-visible > .logo .logo-word {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent, #d8ff3e) 35%, transparent);
+  animation: logo-word-chameleon 3s linear infinite;
+}
+@keyframes logo-word-chameleon {
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo:hover .logo-word,
+  .logo:focus-visible .logo-word,
+  a:hover > .logo .logo-word,
+  a:focus-visible > .logo .logo-word {
+    animation: none;
+  }
+}
+/* intro overlay — big centered logo, then glides to its header spot */
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  contain: layout paint;
+}
+.intro-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1200px 800px at 50% 50%, rgba(30, 32, 36, 1) 0%, rgba(6, 7, 8, 1) 65%);
+  transition: opacity 1.1s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  will-change: opacity;
+}
+.intro-overlay--fly::before { opacity: 0; }
+.intro-logo {
+  transform-origin: center center;
+  transform: translate(var(--start-x, 0), var(--start-y, 0)) scale(var(--start-scale, 5));
+  filter: drop-shadow(0 0 34px color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent));
+  will-change: transform, filter;
+  backface-visibility: hidden;
+}
+.intro-overlay--fly .intro-logo {
+  /* settle bezier — quick acceleration, gentle landing, a hair of overshoot */
+  transition: transform 1.7s cubic-bezier(0.55, 0.02, 0.18, 1.02),
+              filter 1.4s ease;
+  transform: translate(0, 0) scale(1);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent, #d8ff3e) 30%, transparent));
+}
+/* during the intro, spin the chameleon 3x faster so the color story reads
+   even in the short window before the logo starts moving. */
+.intro-logo .logo-mark {
+  animation: logo-chameleon 2.4s ease-in-out infinite !important;
+}
+.intro-logo .logo-word {
+  background-image: linear-gradient(
+    90deg,
+    #d8ff3e 0%,
+    #3ef0d8 25%,
+    #a06bff 55%,
+    #ff6bd2 80%,
+    #d8ff3e 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: logo-word-chameleon 2.4s linear infinite;
+}
+/* while the intro plays: lock scroll, hide the real header logo (its layout
+   slot is still there — measurement is fine), and hide entrance-animated
+   content beneath so it doesn't tick off before the logo lands. */
+body.intro-active {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body.intro-active .header-logo {
+  visibility: hidden;
+}
+body.intro-active [data-split],
+body.intro-active [data-fade],
+body.intro-active [data-words],
+body.intro-active [data-attrib],
+body.intro-active .sect-rule {
+  opacity: 0;
+}
+/* after intro completes, ease the header nav + non-animated chrome back in so
+   the site doesn't just pop; the GSAP-driven entrance animations own their
+   own reveal and are unaffected by this. */
+body.intro-post header,
+body.intro-post footer {
+  animation: intro-reveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes intro-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-overlay { display: none; }
+  body.intro-active { overflow: auto; overscroll-behavior: auto; }
+  body.intro-active .header-logo { visibility: visible; }
+  body.intro-active [data-split],
+  body.intro-active [data-fade],
+  body.intro-active [data-words],
+  body.intro-active [data-attrib],
+  body.intro-active .sect-rule { opacity: 1; }
+  body.intro-post header,
+  body.intro-post footer { animation: none; }
+}
+
+.logo-mark {
+  animation: logo-chameleon 8s ease-in-out infinite;
+  transition: filter 0.4s ease;
+  will-change: filter;
 }
 .logo-mark .logo-hand {
   transform-origin: 12px 12px;
   transition: transform 0.9s cubic-bezier(0.6, 0, 0.2, 1);
+  animation: logo-hand-sway 4s ease-in-out infinite;
+}
+.logo:hover .logo-mark,
+a:hover > .logo-mark {
+  filter: hue-rotate(0deg) drop-shadow(0 0 8px color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent));
+  animation-play-state: paused;
 }
 .logo:hover .logo-mark .logo-hand,
 a:hover > .logo-mark .logo-hand {
   transform: rotate(360deg);
+  animation: none;
+}
+@keyframes logo-chameleon {
+  0%   { filter: hue-rotate(0deg)   drop-shadow(0 0 0 transparent); }
+  20%  { filter: hue-rotate(70deg)  drop-shadow(0 0 6px color-mix(in srgb, var(--accent, #d8ff3e) 40%, transparent)); }
+  40%  { filter: hue-rotate(160deg) drop-shadow(0 0 6px color-mix(in srgb, #3ef0d8 40%, transparent)); }
+  60%  { filter: hue-rotate(240deg) drop-shadow(0 0 6px color-mix(in srgb, #a06bff 40%, transparent)); }
+  80%  { filter: hue-rotate(320deg) drop-shadow(0 0 6px color-mix(in srgb, #ff6bd2 40%, transparent)); }
+  100% { filter: hue-rotate(360deg) drop-shadow(0 0 0 transparent); }
+}
+@keyframes logo-hand-sway {
+  0%, 100% { transform: rotate(-6deg); }
+  50%      { transform: rotate(6deg); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .logo-mark,
   .logo-mark .logo-hand {
+    animation: none;
     transition: none;
   }
 }
@@ -1459,14 +1618,78 @@ a:hover > .logo-mark .logo-hand {
   max-width: 560px;
 }
 
-/* All-layouts picker — tiles are live PostTemplate renders, container
-   queries handle the downscale automatically. Click to pick, the outer
-   preview and the eventual PNG both use it. */
+/* All-layouts picker — opens as a modal so the tiles have real estate.
+   Each tile is a live PostTemplate render; container queries handle the
+   downscale. Click a tile to apply it to the caption. */
+.template-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.template-modal {
+  background: #17181a;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1200px;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.template-modal-head {
+  position: relative;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.template-modal-title {
+  margin: 0;
+  font: 800 1.2rem/1.2 "Archivo", "Helvetica Neue", sans-serif;
+  letter-spacing: -0.02em;
+  color: #f5f3ef;
+}
+.template-modal-sub {
+  margin: 4px 0 0;
+  font: 400 0.8rem/1.4 "Inter", sans-serif;
+  color: rgba(245, 243, 239, 0.6);
+}
+.template-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: #f5f3ef;
+  font: 300 20px/1 "Inter", sans-serif;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.template-modal-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.template-modal .template-gallery {
+  overflow-y: auto;
+  padding: 20px 24px 24px;
+  background: transparent;
+  max-width: none;
+}
 .template-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
-  max-width: 560px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
   padding: 8px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;

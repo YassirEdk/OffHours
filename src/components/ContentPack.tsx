@@ -386,7 +386,9 @@ export function ContentPack() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
-    const ctx = gsap.context(() => {
+    let ctx: gsap.Context | null = null;
+    const init = () => {
+      ctx = gsap.context(() => {
       /* headline character masks */
       gsap.utils.toArray<HTMLElement>("[data-split]").forEach((el) => {
         gsap.from(el.querySelectorAll(".char"), {
@@ -524,9 +526,19 @@ export function ContentPack() {
       });
 
       /* No scroll-velocity skew here — the plane stays flat while scrolling. */
-    });
+      });
+    };
 
-    return () => ctx.revert();
+    if (document.body.classList.contains("intro-active")) {
+      const onDone = () => init();
+      window.addEventListener("intro:done", onDone, { once: true });
+      return () => {
+        window.removeEventListener("intro:done", onDone);
+        ctx?.revert();
+      };
+    }
+    init();
+    return () => ctx?.revert();
   }, []);
 
   return (
@@ -541,7 +553,7 @@ export function ContentPack() {
           aria-label={`${brief.name} — back to top`}
           className="cursor-pointer"
         >
-          <Logo name={brief.name} />
+          <Logo name={brief.name} className="header-logo" />
         </button>
         <nav className="flex items-center gap-6 font-mono text-[0.68rem] tracking-[0.16em] uppercase">
           {(
