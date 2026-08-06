@@ -20,6 +20,19 @@ const SCOPES = BASE_SCOPES.join(",");
 
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
+/* SSR + client-hydration both invoke the callback loader — Meta rejects the
+   second exchange as "code already used". Cache the first success by code
+   so the second call short-circuits instead of hitting Meta again. */
+type ExchangeResult = { ok: true; pageName: string | null };
+const codeCache = new Map<string, { result: ExchangeResult; ts: number }>();
+const CODE_CACHE_TTL_MS = 5 * 60 * 1000;
+function purgeCache() {
+  const now = Date.now();
+  for (const [k, v] of codeCache) {
+    if (now - v.ts > CODE_CACHE_TTL_MS) codeCache.delete(k);
+  }
+}
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
@@ -68,6 +81,10 @@ export const startFacebookOauth = createServerFn({ method: "POST" })
 export const finishFacebookOauth = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { code: string; state: string })
   .handler(async ({ data }): Promise<{ ok: true; pageName: string | null }> => {
+    purgeCache();
+    const cached = codeCache.get(data.code);
+    if (cached) return cached.result;
+
     const appId = requireEnv("FB_APP_ID");
     const appSecret = requireEnv("FB_APP_SECRET");
     const redirectUri = requireEnv("FB_REDIRECT_URI");
@@ -128,5 +145,27 @@ export const finishFacebookOauth = createServerFn({ method: "POST" })
     });
     if (updErr) throw new Error(`Supabase updateUser failed: ${updErr.message}`);
 
-    return { ok: true, pageName: page?.name ?? null };
+    const result: ExchangeResult = { ok: true, pageName: page?.name ?? null };
+    codeCache.set(data.code, { result, ts: Date.now() });
+    return result;
+  });
+
+/* Wipes the `facebook` key from a user's metadata (client-side disconnect). */
+export const disconnectFacebook = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { userId: string })
+  .handler(async ({ data }): Promise<{ ok: true }> => {
+    const supabaseUrl = requireEnv("SUPABASE_URL");
+    const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: current, error: getErr } = await admin.auth.admin.getUserById(data.userId);
+    if (getErr) throw new Error(`Supabase getUser failed: ${getErr.message}`);
+    const meta = { ...(current.user?.user_metadata ?? {}) } as Record<string, unknown>;
+    delete meta["facebook"];
+    const { error: updErr } = await admin.auth.admin.updateUserById(data.userId, {
+      user_metadata: meta,
+    });
+    if (updErr) throw new Error(`Supabase updateUser failed: ${updErr.message}`);
+    return { ok: true };
   });

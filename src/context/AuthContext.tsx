@@ -9,6 +9,11 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  /* Force a refresh of the current session so JWT-embedded user_metadata is
+     rehydrated. Needed after we write to metadata on the server (e.g.
+     connecting or disconnecting Instagram/Facebook) — the auth listener
+     doesn't fire on out-of-band metadata writes. */
+  refresh: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -48,9 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const refresh = async () => {
+    const { data } = await supabase.auth.refreshSession();
+    setSession(data.session ?? null);
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user: session?.user ?? null, session, loading, signIn, signUp, signOut }}
+      value={{ user: session?.user ?? null, session, loading, signIn, signUp, signOut, refresh }}
     >
       {children}
     </AuthContext.Provider>

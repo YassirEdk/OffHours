@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSettings, DEFAULT_SETTINGS, type BrandSettings, type LogoPlacement } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
-import { startInstagramOauth } from "@/lib/instagramOauth";
-import { startFacebookOauth } from "@/lib/facebookOauth";
+import { startInstagramOauth, disconnectInstagram } from "@/lib/instagramOauth";
+import { startFacebookOauth, disconnectFacebook } from "@/lib/facebookOauth";
 
 const CLOSE_MS = 380;
 const MAX_IMAGE_BYTES = 900_000; // ~900KB after base64 fits comfortably in user_metadata
@@ -21,7 +21,7 @@ type Tab = "profile" | "company" | "style";
 
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { settings, saving, save } = useSettings();
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const [draft, setDraft] = useState<BrandSettings>(settings);
   const [tab, setTab] = useState<Tab>("profile");
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +63,36 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
     } catch (e) {
       setConnecting(null);
       setError(e instanceof Error ? e.message : "Couldn't start the connection flow.");
+    }
+  }
+
+  async function onDisconnectInstagram() {
+    if (!user) return;
+    setError(null);
+    setConnecting("ig");
+    try {
+      await disconnectInstagram({ data: { userId: user.id } });
+      await refresh();
+      setNotice("Instagram disconnected.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't disconnect Instagram.");
+    } finally {
+      setConnecting(null);
+    }
+  }
+
+  async function onDisconnectFacebook() {
+    if (!user) return;
+    setError(null);
+    setConnecting("fb");
+    try {
+      await disconnectFacebook({ data: { userId: user.id } });
+      await refresh();
+      setNotice("Facebook disconnected.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't disconnect Facebook.");
+    } finally {
+      setConnecting(null);
     }
   }
 
@@ -210,67 +240,32 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               </div>
               <div className="settings-field">
                 <span className="mono-label">Connections</span>
-                {(() => {
-                  const meta = (user?.user_metadata ?? {}) as {
-                    instagram?: { igUsername?: string | null };
-                    facebook?: { pageName?: string | null };
-                  };
-                  const parts: string[] = [];
-                  if (meta.instagram?.igUsername) parts.push(`Instagram @${meta.instagram.igUsername}`);
-                  if (meta.facebook?.pageName) parts.push(`Facebook Page "${meta.facebook.pageName}"`);
-                  return parts.length ? (
-                    <p className="settings-hint">Connected: {parts.join(" · ")}. Reconnect below to refresh.</p>
-                  ) : null;
-                })()}
                 <div className="settings-connections-row">
-                  <button
-                    type="button"
-                    className="settings-facebook-btn"
-                    onClick={onConnectFacebook}
+                  <ConnectionChip
+                    variant="fb"
+                    connected={
+                      ((user?.user_metadata ?? {}) as {
+                        facebook?: { pageName?: string | null };
+                      }).facebook?.pageName ?? null
+                    }
+                    connecting={connecting === "fb"}
+                    onConnect={onConnectFacebook}
+                    onDisconnect={onDisconnectFacebook}
                     disabled={connecting !== null}
-                  >
-                    <svg
-                      className="settings-facebook-icon"
-                      viewBox="0 0 24 24"
-                      width="18"
-                      height="18"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.7c0-.93.26-1.56 1.6-1.56H16.7V4.28c-.3-.04-1.36-.13-2.6-.13-2.57 0-4.33 1.57-4.33 4.45v2.2H7v3.2h2.77V22h3.73z" />
-                    </svg>
-                    <span>
-                      {connecting === "fb" ? "Redirecting…" : "Connect your Facebook"}
-                    </span>
-                    <span className="arrow" aria-hidden="true">→</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="settings-instagram-btn"
-                    onClick={onConnectInstagram}
+                  />
+                  <ConnectionChip
+                    variant="ig"
+                    connected={
+                      ((user?.user_metadata ?? {}) as {
+                        instagram?: { igUsername?: string | null };
+                      }).instagram?.igUsername ?? null
+                    }
+                    connectedPrefix="@"
+                    connecting={connecting === "ig"}
+                    onConnect={onConnectInstagram}
+                    onDisconnect={onDisconnectInstagram}
                     disabled={connecting !== null}
-                  >
-                    <svg
-                      className="settings-instagram-icon"
-                      viewBox="0 0 24 24"
-                      width="18"
-                      height="18"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <rect x="3" y="3" width="18" height="18" rx="5" />
-                      <circle cx="12" cy="12" r="4" />
-                      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
-                    </svg>
-                    <span>
-                      {connecting === "ig" ? "Redirecting…" : "Connect your Instagram"}
-                    </span>
-                    <span className="arrow" aria-hidden="true">→</span>
-                  </button>
+                  />
                 </div>
               </div>
             </section>
@@ -501,5 +496,82 @@ function ImagePickerRow({
         />
       </div>
     </div>
+  );
+}
+
+/* Chip that toggles between "Connect" (disconnected) and a labelled pill
+   showing the connected account with a disconnect × button. One component
+   covers both Facebook and Instagram — brand colour and glyph come from the
+   variant class in CSS. */
+function ConnectionChip({
+  variant,
+  connected,
+  connectedPrefix = "",
+  connecting,
+  disabled,
+  onConnect,
+  onDisconnect,
+}: {
+  variant: "fb" | "ig";
+  connected: string | null;
+  connectedPrefix?: string;
+  connecting: boolean;
+  disabled: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  const glyph =
+    variant === "fb" ? (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+        <path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.7c0-.93.26-1.56 1.6-1.56H16.7V4.28c-.3-.04-1.36-.13-2.6-.13-2.57 0-4.33 1.57-4.33 4.45v2.2H7v3.2h2.77V22h3.73z" />
+      </svg>
+    ) : (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+           strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
+      </svg>
+    );
+
+  if (connected) {
+    return (
+      <div className={`conn-chip conn-chip--${variant}`}>
+        <span className="conn-chip-glyph" aria-hidden="true">{glyph}</span>
+        <span className="conn-chip-name">{connectedPrefix}{connected}</span>
+        <button
+          type="button"
+          className="conn-chip-disconnect"
+          onClick={onDisconnect}
+          disabled={disabled}
+          aria-label={`Disconnect ${variant === "fb" ? "Facebook" : "Instagram"}`}
+          title={`Disconnect ${variant === "fb" ? "Facebook" : "Instagram"}`}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
+  const btnClass = variant === "fb" ? "settings-facebook-btn" : "settings-instagram-btn";
+  const iconClass = variant === "fb" ? "settings-facebook-icon" : "settings-instagram-icon";
+  const label =
+    variant === "fb"
+      ? connecting
+        ? "Redirecting…"
+        : "Connect your Facebook"
+      : connecting
+        ? "Redirecting…"
+        : "Connect your Instagram";
+
+  return (
+    <button type="button" className={btnClass} onClick={onConnect} disabled={disabled}>
+      <span className={iconClass}>{glyph}</span>
+      <span>{label}</span>
+      <span className="arrow" aria-hidden="true">→</span>
+    </button>
   );
 }

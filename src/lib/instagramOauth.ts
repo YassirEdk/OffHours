@@ -45,6 +45,21 @@ const SCOPES = BASE_SCOPES.join(",");
 
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
+/* SSR + client-hydration both run the callback loader, and Meta rejects the
+   second exchange attempt with "code has been used". Cache the result by
+   code so the second call returns the first success instead of re-running
+   the whole exchange. In-memory, per-server-instance — enough for the SSR /
+   hydrate window; codes aren't reusable anyway. */
+type ExchangeResult = { ok: true; igUsername: string | null };
+const codeCache = new Map<string, { result: ExchangeResult; ts: number }>();
+const CODE_CACHE_TTL_MS = 5 * 60 * 1000;
+function purgeCache() {
+  const now = Date.now();
+  for (const [k, v] of codeCache) {
+    if (now - v.ts > CODE_CACHE_TTL_MS) codeCache.delete(k);
+  }
+}
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
@@ -95,6 +110,10 @@ export const startInstagramOauth = createServerFn({ method: "POST" })
 export const finishInstagramOauth = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { code: string; state: string })
   .handler(async ({ data }): Promise<{ ok: true; igUsername: string | null }> => {
+    purgeCache();
+    const cached = codeCache.get(data.code);
+    if (cached) return cached.result;
+
     const clientId = requireEnv("IG_APP_ID");
     const clientSecret = requireEnv("IG_APP_SECRET");
     const redirectUri = requireEnv("IG_REDIRECT_URI");
@@ -171,5 +190,30 @@ export const finishInstagramOauth = createServerFn({ method: "POST" })
     });
     if (updErr) throw new Error(`Supabase updateUser failed: ${updErr.message}`);
 
-    return { ok: true, igUsername: me.username ?? null };
+    const result: ExchangeResult = { ok: true, igUsername: me.username ?? null };
+    codeCache.set(data.code, { result, ts: Date.now() });
+    return result;
+  });
+
+/* Wipes the `instagram` key from a user's metadata. Called by the disconnect
+   button in Settings. Doesn't revoke the token on Meta's side — that requires
+   a graph.instagram.com/{ig-user-id}/permissions DELETE which we can add later;
+   for now, clearing it locally is enough to sever the app's ability to use it. */
+export const disconnectInstagram = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { userId: string })
+  .handler(async ({ data }): Promise<{ ok: true }> => {
+    const supabaseUrl = requireEnv("SUPABASE_URL");
+    const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: current, error: getErr } = await admin.auth.admin.getUserById(data.userId);
+    if (getErr) throw new Error(`Supabase getUser failed: ${getErr.message}`);
+    const meta = { ...(current.user?.user_metadata ?? {}) } as Record<string, unknown>;
+    delete meta["instagram"];
+    const { error: updErr } = await admin.auth.admin.updateUserById(data.userId, {
+      user_metadata: meta,
+    });
+    if (updErr) throw new Error(`Supabase updateUser failed: ${updErr.message}`);
+    return { ok: true };
   });

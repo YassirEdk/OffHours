@@ -3178,3 +3178,73 @@ button:focus-visible > .logo .logo-mark {
   .conn-card, .conn-icon, .conn-page::before, .conn-page::after,
   .conn-eyebrow-dot { animation: none !important; transform: none !important; filter: none !important; }
 }
+
+/* Connected-account chip — shown in Settings when a social account is
+   linked. Replaces the connect button. Displays the brand glyph, the
+   account name in accent colour, and a × disconnect button. */
+.conn-chip {
+  --chip-accent: #d8ff3e;
+  --chip-fg: #f5f3ef;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.55rem 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--chip-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--chip-accent) 10%, transparent);
+  color: var(--chip-fg);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  transition: box-shadow 0.25s ease;
+}
+.conn-chip:hover {
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--chip-accent) 55%, transparent);
+}
+.conn-chip--fb { --chip-accent: #1877f2; }
+.conn-chip--ig { --chip-accent: #d62976; }
+.conn-chip-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--chip-accent);
+  flex: 0 0 auto;
+}
+.conn-chip-name {
+  color: var(--chip-accent);
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conn-chip-disconnect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(245, 243, 239, 0.55);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.conn-chip-disconnect:hover,
+.conn-chip-disconnect:focus-visible {
+  color: #ff5c5c;
+  border-color: rgba(255, 92, 92, 0.5);
+  background: rgba(255, 92, 92, 0.1);
+  transform: rotate(90deg);
+  outline: none;
+}
+.conn-chip-disconnect:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
