@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { finishInstagramOauth } from "@/lib/instagramOauth";
 
-/* /auth/instagram/callback — Instagram Login redirect target. Uses the
-   direct-IG-login flow (no Facebook Page hop). */
+/* /auth/instagram/callback — Instagram Login redirect target. Direct-IG
+   login flow, no Facebook Page hop. */
 export const Route = createFileRoute("/auth/instagram/callback")({
   head: () => ({
     meta: [
@@ -42,36 +42,111 @@ export const Route = createFileRoute("/auth/instagram/callback")({
   component: CallbackPage,
 });
 
+function InstagramGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="30"
+      height="30"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function WarnGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 9v4M12 17h.01M4.93 19h14.14a2 2 0 0 0 1.73-3L13.73 4a2 2 0 0 0-3.46 0L3.2 16a2 2 0 0 0 1.73 3z" />
+    </svg>
+  );
+}
+
 function CallbackPage() {
   const result = Route.useLoaderData();
+
+  if (result.ok) {
+    return (
+      <main className="conn-page">
+        <section className="conn-card conn-card--ig">
+          <span className="conn-eyebrow">
+            <span className="conn-eyebrow-dot" aria-hidden="true" />
+            Connection · Instagram
+          </span>
+          <span className="conn-icon" aria-hidden="true"><InstagramGlyph /></span>
+          <h1 className="display conn-title">
+            {result.igUsername ? (
+              <>Welcome, <span className="conn-username">@{result.igUsername}</span></>
+            ) : (
+              <>Connected</>
+            )}
+          </h1>
+          <p className="body-copy conn-copy">
+            Your Instagram business account is now linked to your Offhours workspace.
+            You can close this tab and head back to Settings.
+          </p>
+          <div className="conn-actions">
+            <Link to="/" className="conn-primary">
+              <span>Continue</span>
+              <span className="conn-arrow" aria-hidden="true">→</span>
+            </Link>
+            <button
+              type="button"
+              className="conn-secondary"
+              onClick={() => window.close()}
+            >
+              Close this tab
+            </button>
+          </div>
+          <p className="conn-hint">
+            <strong>Next:</strong> post-scheduling and DM features unlock once you add the
+            advanced Instagram scopes via App Review. Basic connection is live now.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="legal-page">
-      <article className="legal-body">
-        <p className="mono-label">Connection · Instagram</p>
-        {result.ok ? (
-          <>
-            <h1 className="display legal-title mt-4">Connected</h1>
-            <p className="body-copy mt-4 max-w-[62ch] opacity-85">
-              {result.igUsername
-                ? `Instagram account @${result.igUsername} is now linked to your Offhours account.`
-                : "Your Instagram business account is now linked."}
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="display legal-title mt-4">Couldn't connect</h1>
-            <p className="body-copy mt-4 max-w-[62ch] opacity-85">{result.error}</p>
-            <p className="body-copy mt-2 max-w-[62ch] opacity-70">
-              Common causes: the Instagram account isn't Business/Creator, the OAuth session
-              expired, or the redirect URI in the Instagram Login panel doesn't match. Try again
-              from Settings.
-            </p>
-          </>
-        )}
-        <p className="mt-8">
-          <Link to="/" className="legal-link">← Back home</Link>
+    <main className="conn-page">
+      <section className="conn-card conn-card--error">
+        <span className="conn-eyebrow">
+          <span className="conn-eyebrow-dot" aria-hidden="true" />
+          Connection · Instagram
+        </span>
+        <span className="conn-icon" aria-hidden="true"><WarnGlyph /></span>
+        <h1 className="display conn-title">Couldn't connect</h1>
+        <p className="conn-error-body">{result.error}</p>
+        <p className="body-copy conn-copy">
+          Common causes: the Instagram account isn't Business/Creator, the OAuth session
+          expired, the redirect URI in the Instagram Login panel doesn't match, or this
+          authorization code was already used (refreshing the callback page does that —
+          start over from Settings).
         </p>
-      </article>
+        <div className="conn-actions">
+          <Link to="/" className="conn-primary">
+            <span>Back to Settings</span>
+            <span className="conn-arrow" aria-hidden="true">→</span>
+          </Link>
+          <button
+            type="button"
+            className="conn-secondary"
+            onClick={() => window.close()}
+          >
+            Close this tab
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
+

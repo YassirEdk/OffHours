@@ -2963,3 +2963,218 @@ button:focus-visible > .logo .logo-mark {
   transition: opacity 0.15s ease;
 }
 .legal-link:hover { opacity: 0.75; }
+
+/* Connection callback pages — Instagram / Facebook OAuth landing.
+   Centered card on an animated background, matching the site's hairline
+   vocabulary. Success and error share layout; only the accent and icon
+   change. */
+.conn-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1.5rem, 5vh, 3rem) clamp(1rem, 5vw, 3rem);
+  background:
+    radial-gradient(1000px 700px at 50% 30%, rgba(30, 32, 36, 1) 0%, rgba(6, 7, 8, 1) 70%),
+    #0a0b0c;
+  color: #f5f3ef;
+  position: relative;
+  overflow: hidden;
+}
+.conn-page::before,
+.conn-page::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+  opacity: 0.35;
+  animation: conn-drift 18s ease-in-out infinite;
+}
+.conn-page::before {
+  width: 480px; height: 480px; top: -160px; left: -160px;
+  background: radial-gradient(circle, var(--conn-accent, #d8ff3e) 0%, transparent 65%);
+}
+.conn-page::after {
+  width: 380px; height: 380px; bottom: -140px; right: -120px;
+  background: radial-gradient(circle, var(--conn-accent, #d8ff3e) 0%, transparent 70%);
+  animation-delay: -6s;
+  opacity: 0.22;
+}
+@keyframes conn-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(30px, -20px) scale(1.08); }
+}
+
+.conn-card {
+  --conn-accent: #d8ff3e;
+  position: relative;
+  z-index: 1;
+  width: min(94vw, 560px);
+  padding: clamp(2rem, 5vw, 3rem);
+  background:
+    linear-gradient(180deg, rgba(18, 20, 22, 0.94), rgba(10, 11, 12, 0.96)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  box-shadow:
+    0 40px 80px -20px rgba(0, 0, 0, 0.7),
+    0 0 60px -20px color-mix(in srgb, var(--conn-accent) 40%, transparent);
+  animation: conn-card-in 0.7s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+@keyframes conn-card-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.96); filter: blur(6px); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0); }
+}
+.conn-card--error {
+  --conn-accent: #ff5c5c;
+}
+
+.conn-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 239, 0.65);
+}
+.conn-eyebrow-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--conn-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--conn-accent) 65%, transparent);
+  animation: conn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes conn-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%      { transform: scale(1.5); opacity: 0.6; }
+}
+
+.conn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 66px;
+  height: 66px;
+  margin-top: 1.5rem;
+  border-radius: 20px;
+  color: #0a0b0c;
+  background: var(--conn-accent);
+  box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--conn-accent) 55%, transparent);
+  animation: conn-icon-in 0.9s 0.15s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+@keyframes conn-icon-in {
+  0%   { opacity: 0; transform: scale(0.6) rotate(-10deg); }
+  100% { opacity: 1; transform: scale(1)   rotate(0deg); }
+}
+.conn-card--error .conn-icon {
+  color: #f5f3ef;
+}
+/* Facebook variant uses the FB blue accent + white icon fill */
+.conn-card--fb {
+  --conn-accent: #1877f2;
+}
+.conn-card--fb .conn-icon { color: #ffffff; }
+/* Instagram variant uses the IG magenta accent */
+.conn-card--ig {
+  --conn-accent: #d62976;
+}
+.conn-card--ig .conn-icon { color: #ffffff; }
+
+.conn-title {
+  font-size: clamp(2.4rem, 6vw, 3.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.01em;
+  margin-top: 1.5rem;
+}
+.conn-username {
+  color: var(--conn-accent);
+  filter: none;
+}
+.conn-copy {
+  margin-top: 1rem;
+  max-width: 52ch;
+  line-height: 1.65;
+  opacity: 0.85;
+}
+.conn-copy + .conn-copy { margin-top: 0.55rem; opacity: 0.65; }
+
+.conn-actions {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+.conn-primary,
+.conn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.25s ease, background-color 0.2s ease, color 0.2s ease;
+}
+.conn-primary {
+  background: var(--conn-accent);
+  color: #0a0b0c;
+  border: 1px solid var(--conn-accent);
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--conn-accent) 55%, transparent);
+}
+.conn-primary:hover,
+.conn-primary:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  box-shadow: 0 14px 28px -12px color-mix(in srgb, var(--conn-accent) 65%, transparent);
+}
+.conn-secondary {
+  background: transparent;
+  color: rgba(245, 243, 239, 0.85);
+  border: 1px solid rgba(245, 243, 239, 0.18);
+}
+.conn-secondary:hover,
+.conn-secondary:focus-visible {
+  outline: none;
+  color: #f5f3ef;
+  border-color: rgba(245, 243, 239, 0.45);
+  background: rgba(245, 243, 239, 0.04);
+}
+.conn-arrow { transition: transform 0.25s ease; }
+.conn-primary:hover .conn-arrow,
+.conn-primary:focus-visible .conn-arrow { transform: translateX(3px); }
+
+.conn-hint {
+  margin-top: 1.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(245, 243, 239, 0.12);
+  background: rgba(245, 243, 239, 0.03);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: rgba(245, 243, 239, 0.7);
+  border-radius: 6px;
+}
+.conn-hint strong { color: #f5f3ef; font-weight: 600; }
+
+.conn-error-body {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--conn-accent);
+  background: rgba(245, 243, 239, 0.03);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: rgba(245, 243, 239, 0.85);
+  word-break: break-word;
+  border-radius: 0 6px 6px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conn-card, .conn-icon, .conn-page::before, .conn-page::after,
+  .conn-eyebrow-dot { animation: none !important; transform: none !important; filter: none !important; }
+}
