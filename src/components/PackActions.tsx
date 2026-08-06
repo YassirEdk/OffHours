@@ -4,7 +4,6 @@ import { usePackContext } from "@/context/PackContext";
 import { useAuth } from "@/context/AuthContext";
 import { BriefPanel } from "@/components/BriefPanel";
 import { AuthDialog } from "@/components/AuthDialog";
-import { PlanPublishDialog } from "@/components/PlanPublishDialog";
 
 const GATE_CLOSE_MS = 320;
 
@@ -17,14 +16,9 @@ export function PackActions() {
   const { user } = useAuth();
   const [briefOpen, setBriefOpen] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
 
   const onWriteBrief = () => {
     if (user) setBriefOpen(true);
-    else setGateOpen(true);
-  };
-  const onPlanPublish = () => {
-    if (user) setPlanOpen(true);
     else setGateOpen(true);
   };
 
@@ -44,15 +38,6 @@ export function PackActions() {
           </button>
         ) : null}
 
-        {/* Plan the pack — pick dates/hours for each of the five posts. Only
-            useful once a pack exists (i.e. not on the example cover state). */}
-        {!isExample ? (
-          <button type="button" className="pill-cta plan-publish-btn" onClick={onPlanPublish}>
-            <span className="fill" />
-            <span>Plan publish</span>
-            <span className="arrow">→</span>
-          </button>
-        ) : null}
       </div>
 
       {!isExample ? (
@@ -63,7 +48,6 @@ export function PackActions() {
 
       <BriefPanel open={briefOpen} onClose={() => setBriefOpen(false)} />
       <AuthGate open={gateOpen} onClose={() => setGateOpen(false)} />
-      <PlanPublishDialog open={planOpen} onClose={() => setPlanOpen(false)} />
     </>
   );
 }

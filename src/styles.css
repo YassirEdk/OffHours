@@ -3371,3 +3371,81 @@ button:focus-visible > .logo .logo-mark {
 }
 
 .plan-publish-btn { --accent: #d62976; }
+
+/* /plan/$id — owner-scoped view of a saved publish schedule. */
+.plan-page {
+  min-height: 100vh;
+  padding: clamp(3rem, 8vh, 6rem) clamp(1.25rem, 5vw, 3rem);
+  background: #0a0b0c;
+  color: #f5f3ef;
+}
+.plan-page-body { max-width: 68ch; margin: 0 auto; }
+.plan-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(245, 243, 239, 0.12);
+}
+.plan-page-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.plan-page-delete {
+  color: #ff5c5c !important;
+  border-color: rgba(255, 92, 92, 0.4) !important;
+}
+.plan-page-delete:hover,
+.plan-page-delete:focus-visible {
+  background: rgba(255, 92, 92, 0.1) !important;
+  border-color: #ff5c5c !important;
+}
+.plan-schedule {
+  list-style: none;
+  padding: 0;
+  margin: 2rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.plan-schedule-row {
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(245, 243, 239, 0.12);
+  background: rgba(245, 243, 239, 0.02);
+  border-radius: 6px;
+}
+.plan-schedule-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.plan-schedule-index {
+  color: var(--accent, #d8ff3e);
+  font-weight: 700;
+}
+.plan-schedule-kind {
+  color: rgba(245, 243, 239, 0.55);
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  border-radius: 4px;
+}
+.plan-schedule-when {
+  color: #f5f3ef;
+  margin-left: auto;
+}
+.plan-schedule-hook {
+  margin-top: 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  font-style: italic;
+  color: rgba(245, 243, 239, 0.85);
+}

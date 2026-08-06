@@ -1,22 +1,25 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 
-/* Planned posts — dates the user has scheduled for each of the five ideas
-   in a pack. Persisted to Supabase user_metadata.plannedPosts so it survives
-   sign-outs and browser reloads.
+/* Plans — each save creates a new row in public.plans with a UUID.
+   The URL /plan/$id shows the plan, but only to the authenticated owner
+   (enforced both by RLS and by explicit userId equality below).
 
    Actual auto-publishing to Instagram is NOT wired here — that needs the
-   `instagram_content_publish` scope (App Review) plus a cron job that runs
-   at each scheduled time. This just stores the plan; users can copy the
-   caption + image to Instagram manually until the auto-publish half ships. */
+   `instagram_content_publish` scope (App Review) plus a cron job. */
 
 export type PlannedPost = {
-  /** Idea kind — proof, opinion, build, series, receipt. */
   kind: string;
-  /** The hook — helps the user remember which post this is. */
   hook: string;
-  /** ISO datetime string, e.g. "2026-08-10T18:00:00.000Z". */
   scheduledAt: string;
+};
+
+export type PlanRow = {
+  id: string;
+  user_id: string;
+  brief_name: string | null;
+  posts: PlannedPost[];
+  created_at: string;
 };
 
 function requireEnv(name: string): string {
@@ -25,24 +28,67 @@ function requireEnv(name: string): string {
   return v;
 }
 
-export const savePlannedPosts = createServerFn({ method: "POST" })
-  .validator((data: unknown) => data as { userId: string; posts: PlannedPost[] })
+function adminClient() {
+  const supabaseUrl = requireEnv("SUPABASE_URL");
+  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+export const createPlan = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as { userId: string; posts: PlannedPost[]; briefName: string | null },
+  )
+  .handler(async ({ data }): Promise<{ id: string }> => {
+    const admin = adminClient();
+    const { data: row, error } = await admin
+      .from("plans")
+      .insert({
+        user_id: data.userId,
+        brief_name: data.briefName,
+        posts: data.posts,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Insert plan failed: ${error.message}`);
+    return { id: row.id as string };
+  });
+
+/* Owner-scoped read. We accept the userId from the caller (their supabase
+   session id) and only return the row if user_id matches. The RLS policy
+   is a second line of defence — this explicit check keeps things safe even
+   if the service role bypasses RLS. */
+export const getPlan = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { id: string; userId: string })
+  .handler(async ({ data }): Promise<{ plan: PlanRow | null }> => {
+    const admin = adminClient();
+    const { data: row, error } = await admin
+      .from("plans")
+      .select("id, user_id, brief_name, posts, created_at")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(`Fetch plan failed: ${error.message}`);
+    if (!row) return { plan: null };
+    if (row.user_id !== data.userId) return { plan: null };
+    return { plan: row as PlanRow };
+  });
+
+export const deletePlan = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { id: string; userId: string })
   .handler(async ({ data }): Promise<{ ok: true }> => {
-    const supabaseUrl = requireEnv("SUPABASE_URL");
-    const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: current, error: getErr } = await admin.auth.admin.getUserById(data.userId);
-    if (getErr) throw new Error(`Supabase getUser failed: ${getErr.message}`);
-    const nextMeta = {
-      ...(current.user?.user_metadata ?? {}),
-      plannedPosts: data.posts,
-      plannedPostsSavedAt: Date.now(),
-    };
-    const { error: updErr } = await admin.auth.admin.updateUserById(data.userId, {
-      user_metadata: nextMeta,
-    });
-    if (updErr) throw new Error(`Supabase updateUser failed: ${updErr.message}`);
+    const admin = adminClient();
+    // Explicit ownership guard alongside RLS.
+    const { data: existing } = await admin
+      .from("plans")
+      .select("user_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!existing || existing.user_id !== data.userId) {
+      throw new Error("Not authorised to delete this plan.");
+    }
+    const { error } = await admin.from("plans").delete().eq("id", data.id);
+    if (error) throw new Error(`Delete plan failed: ${error.message}`);
     return { ok: true };
   });

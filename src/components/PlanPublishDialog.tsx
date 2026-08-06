@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 import { usePackContext } from "@/context/PackContext";
-import { savePlannedPosts, type PlannedPost } from "@/lib/plannedPosts";
+import { createPlan, type PlannedPost } from "@/lib/plannedPosts";
 
 const CLOSE_MS = 380;
 
@@ -42,8 +43,9 @@ function localInputToIso(v: string): string {
 }
 
 export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user, refresh } = useAuth();
-  const { pack } = usePackContext();
+  const { user } = useAuth();
+  const { pack, brief } = usePackContext();
+  const navigate = useNavigate();
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,28 +57,24 @@ export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: (
 
   /* Prefill each idea's slot with today+i evening — spread five posts across
      five different days by default. Users override via inputs or suggestion
-     chips. */
+     chips. New URL every save, so we always seed fresh — no user_metadata
+     lookup needed. */
   useEffect(() => {
     if (!open) return;
-    const meta = (user?.user_metadata ?? {}) as { plannedPosts?: PlannedPost[] };
-    if (meta.plannedPosts?.length === ideas.length) {
-      setPlan(meta.plannedPosts);
-    } else {
-      const seeded = ideas.map((idea, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() + (i + 1));
-        d.setHours(18, 0, 0, 0);
-        return {
-          kind: idea.kind,
-          hook: idea.captions[0]?.hook ?? idea.title,
-          scheduledAt: d.toISOString(),
-        };
-      });
-      setPlan(seeded);
-    }
+    const seeded = ideas.map((idea, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + (i + 1));
+      d.setHours(18, 0, 0, 0);
+      return {
+        kind: idea.kind,
+        hook: idea.captions[0]?.hook ?? idea.title,
+        scheduledAt: d.toISOString(),
+      };
+    });
+    setPlan(seeded);
     setError(null);
     setNotice(null);
-  }, [open, ideas, user]);
+  }, [open, ideas]);
 
   useEffect(() => {
     if (open) {
@@ -139,13 +137,17 @@ export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: (
     setError(null);
     setNotice(null);
     try {
-      await savePlannedPosts({ data: { userId: user.id, posts: plan } });
-      await refresh();
-      setNotice("Plan saved.");
-      window.setTimeout(() => setNotice(null), 1600);
+      const { id } = await createPlan({
+        data: {
+          userId: user.id,
+          posts: plan,
+          briefName: brief?.name ?? null,
+        },
+      });
+      onClose();
+      navigate({ to: "/plan/$id", params: { id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save the plan.");
-    } finally {
       setSaving(false);
     }
   }

@@ -3,11 +3,13 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toPng } from "html-to-image";
 import { usePack, usePackContext } from "@/context/PackContext";
 import { useBrand } from "@/context/BrandContext";
+import { useAuth } from "@/context/AuthContext";
 import { GOAL_LABEL, PLATFORM_LABEL, type Caption } from "@/lib/pack";
 import { packToText } from "@/lib/export";
 import { generateCaptionImage } from "@/lib/generateImage";
 import { PostTemplate, TEMPLATE_COUNT, pickTemplate } from "./PostTemplate";
 import { Logo } from "./Logo";
+import { PlanPublishDialog } from "./PlanPublishDialog";
 
 /* A plain readable view of the generated pack: brief at the top, brand
    settings, then each of the five ideas with its three captions and hashtag
@@ -18,7 +20,9 @@ export function PackResults() {
   const pack = usePack();
   const { isExample, status, error } = usePackContext();
   const { brief } = pack;
+  const { user } = useAuth();
   const [copiedAll, setCopiedAll] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
 
   const copyAll = async () => {
     try {
@@ -50,11 +54,24 @@ export function PackResults() {
           <button type="button" className="chip" onClick={copyAll}>
             {copiedAll ? "Copied" : "Copy the whole pack"}
           </button>
+          {!isExample && user ? (
+            <button
+              type="button"
+              className="pill-cta plan-publish-btn"
+              onClick={() => setPlanOpen(true)}
+              disabled={status === "generating"}
+            >
+              <span className="fill" />
+              <span>Plan publish</span>
+              <span className="arrow">→</span>
+            </button>
+          ) : null}
           <Link to="/" className="chip">
             ← Back
           </Link>
         </div>
       </header>
+      <PlanPublishDialog open={planOpen} onClose={() => setPlanOpen(false)} />
 
       {status === "error" ? (
         <p className="results-status results-status--error">
