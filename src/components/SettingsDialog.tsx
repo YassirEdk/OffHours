@@ -39,7 +39,9 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
     setConnecting("ig");
     try {
       const { url } = await startInstagramOauth({ data: { userId: user.id } });
-      window.location.href = url;
+      window.open(url, "_blank", "noopener,noreferrer");
+      setConnecting(null);
+      setNotice("Opened in a new tab. Finish the connection there, then reopen Settings.");
     } catch (e) {
       setConnecting(null);
       setError(e instanceof Error ? e.message : "Couldn't start the connection flow.");
@@ -55,7 +57,9 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
     setConnecting("fb");
     try {
       const { url } = await startFacebookOauth({ data: { userId: user.id } });
-      window.location.href = url;
+      window.open(url, "_blank", "noopener,noreferrer");
+      setConnecting(null);
+      setNotice("Opened in a new tab. Finish the connection there, then reopen Settings.");
     } catch (e) {
       setConnecting(null);
       setError(e instanceof Error ? e.message : "Couldn't start the connection flow.");
