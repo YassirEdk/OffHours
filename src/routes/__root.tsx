@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -120,6 +121,14 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/* Intro overlay only on the landing page — refreshing /pack or /plan/* should
+   just show the page, not replay the logo-flight animation. */
+function ConditionalIntro() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (pathname !== "/") return null;
+  return <IntroOverlay />;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -134,7 +143,7 @@ function RootComponent() {
               form on one route and the pack on another share one source. */}
           <PackProvider>
             <BrandProvider>
-              <IntroOverlay />
+              <ConditionalIntro />
               {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
               <Outlet />
             </BrandProvider>

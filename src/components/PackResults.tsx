@@ -1,15 +1,20 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { usePack, usePackContext } from "@/context/PackContext";
 import { useBrand } from "@/context/BrandContext";
+import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { GOAL_LABEL, PLATFORM_LABEL, type Caption } from "@/lib/pack";
 import { packToText } from "@/lib/export";
 import { generateCaptionImage } from "@/lib/generateImage";
-import { PostTemplate, TEMPLATE_COUNT, pickTemplate } from "./PostTemplate";
+import { PostTemplate, TEMPLATE_COUNT, pickTemplate, type LayoutOverrides, type LogoPlacement, type CustomLayout } from "./PostTemplate";
+import { LayoutEditor } from "./LayoutEditor";
 import { Logo } from "./Logo";
 import { PlanPublishDialog } from "./PlanPublishDialog";
+import { AuthNav } from "./AuthNav";
+import { savePack } from "@/lib/savedPacks";
+import { useNavigate } from "@tanstack/react-router";
 
 /* A plain readable view of the generated pack: brief at the top, brand
    settings, then each of the five ideas with its three captions and hashtag
@@ -21,8 +26,70 @@ export function PackResults() {
   const { isExample, status, error } = usePackContext();
   const { brief } = pack;
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [copiedAll, setCopiedAll] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
+  /* Map of caption keys ("ideaIdx-captionIdx") to their generated image
+     data URLs. Used to gate the Plan-publish button, snapshot the whole
+     set for Save pack, and persist across refreshes.
+
+     Cached per-brief in localStorage so a refresh on /pack?brief=… doesn't
+     wipe every generated image. localStorage caps around 5–10 MB per
+     origin — a full pack (15 images) can be big, so writes are wrapped in
+     try/catch and silently give up on QuotaExceededError. */
+  const imagesCacheKey = `pack-images:v1:${JSON.stringify(brief)}`;
+  const readImagesCache = (): Record<string, string> => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(imagesCacheKey);
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  };
+  const writeImagesCache = (next: Record<string, string>) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(imagesCacheKey, JSON.stringify(next));
+    } catch {
+      // quota / storage disabled — accept it and move on
+    }
+  };
+  const [images, setImages] = useState<Record<string, string>>(() => readImagesCache());
+  /* Reseed on brief change so switching packs doesn't leak the old set. */
+  useEffect(() => {
+    setImages(readImagesCache());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imagesCacheKey]);
+  const hasAnyImage = Object.keys(images).length > 0;
+  const markImage = (key: string, dataUrl: string) =>
+    setImages((prev) => {
+      const next = { ...prev, [key]: dataUrl };
+      writeImagesCache(next);
+      return next;
+    });
+
+  const [savingPack, setSavingPack] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const onSavePack = async () => {
+    if (!user) return;
+    setSaveError(null);
+    setSavingPack(true);
+    try {
+      const { id } = await savePack({
+        data: {
+          userId: user.id,
+          briefName: brief.name || null,
+          pack,
+          images,
+        },
+      });
+      await navigate({ to: "/pack/saved/$id", params: { id } });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't save this pack.");
+      setSavingPack(false);
+    }
+  };
 
   const copyAll = async () => {
     try {
@@ -35,12 +102,19 @@ export function PackResults() {
   };
 
   return (
+    <>
+      {/* Top bar — full-width, sits above the results-page container so the
+          Offhours logo hugs the top-left corner of the viewport (rather than
+          the indented pack column) and the auth chrome the top-right. */}
+      <div className="results-topbar">
+        <Link to="/" aria-label="Offhours — back to home" className="results-topbar-logo">
+          <Logo name="Offhours" className="header-logo" />
+        </Link>
+        <AuthNav />
+      </div>
     <div className="results-page">
       <header className="results-head">
         <div className="results-head-brand">
-          <Link to="/" aria-label="Offhours — back to home" className="results-head-logo">
-            <Logo name="Offhours" className="header-logo" />
-          </Link>
           <div>
             <p className="mono-label">
               {isExample ? "The example pack" : "Your generated pack"}
@@ -51,27 +125,47 @@ export function PackResults() {
           </div>
         </div>
         <div className="results-head-actions">
-          <button type="button" className="chip" onClick={copyAll}>
+          <Link to="/" className="results-back" aria-label="Back to home">
+            <span className="results-back-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                   strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" />
+                <path d="M12 19l-7-7 7-7" />
+              </svg>
+            </span>
+            <span className="results-back-label">Back</span>
+          </Link>
+          <button type="button" className="chip results-head-split" onClick={copyAll}>
             {copiedAll ? "Copied" : "Copy the whole pack"}
           </button>
-          {!isExample && user ? (
-            <button
-              type="button"
-              className="pill-cta plan-publish-btn"
-              onClick={() => setPlanOpen(true)}
-              disabled={status === "generating"}
-            >
-              <span className="fill" />
-              <span>Plan publish</span>
-              <span className="arrow">→</span>
-            </button>
+          {!isExample && user && hasAnyImage ? (
+            <>
+              <button
+                type="button"
+                className="chip"
+                onClick={onSavePack}
+                disabled={savingPack || status === "generating"}
+              >
+                {savingPack ? "Saving…" : "Save pack"}
+              </button>
+              <button
+                type="button"
+                className="pill-cta plan-publish-btn"
+                onClick={() => setPlanOpen(true)}
+                disabled={status === "generating"}
+              >
+                <span className="fill" />
+                <span>Plan publish</span>
+                <span className="arrow">→</span>
+              </button>
+            </>
           ) : null}
-          <Link to="/" className="chip">
-            ← Back
-          </Link>
+          {saveError ? (
+            <span className="mono-label text-[#ff5c5c]">{saveError}</span>
+          ) : null}
         </div>
       </header>
-      <PlanPublishDialog open={planOpen} onClose={() => setPlanOpen(false)} />
+      <PlanPublishDialog open={planOpen} onClose={() => setPlanOpen(false)} images={images} />
 
       {status === "error" ? (
         <p className="results-status results-status--error">
@@ -87,8 +181,6 @@ export function PackResults() {
         <GeneratingState brief={brief} />
       ) : (
         <>
-          <BrandSettings />
-
           <dl className="results-brief">
             {[
               ["Audience", brief.audience],
@@ -122,7 +214,7 @@ export function PackResults() {
             <div className="results-captions">
               {idea.captions.map((cap, ci) => (
                 <CaptionCard
-                  key={ci}
+                  key={`${i}-${ci}`}
                   cap={cap}
                   label={String.fromCharCode(65 + ci)}
                   ideaKind={idea.kind}
@@ -133,6 +225,8 @@ export function PackResults() {
                      across re-renders and image regenerations; a new caption or
                      a new idea rolls a different one. */
                   templateSeed={i * 31 + ci * 7}
+                  onImageReady={(dataUrl) => markImage(`${i}-${ci}`, dataUrl)}
+                  initialImage={images[`${i}-${ci}`]}
                 />
               ))}
             </div>
@@ -161,6 +255,7 @@ export function PackResults() {
         </>
       )}
     </div>
+    </>
   );
 }
 
@@ -206,95 +301,6 @@ function GeneratingState({ brief }: { brief: { name: string; niche: string; audi
   );
 }
 
-function BrandSettings() {
-  const { imageDataUrl, styleKeywords, primaryColor, setImage, setStyleKeywords, setPrimaryColor, clear } = useBrand();
-  const [open, setOpen] = useState(false);
-
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 4_000_000) {
-      alert("Please pick an image under 4 MB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setImage(typeof reader.result === "string" ? reader.result : null);
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <section className="brand-panel">
-      <button
-        type="button"
-        className="brand-panel-toggle"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="mono-label">Brand · used for image generation</span>
-        <span className="mono-label opacity-60">
-          {imageDataUrl ? "✓ logo set" : "no logo yet"}
-          {styleKeywords ? " · style set" : ""}
-          {primaryColor ? " · color set" : ""}
-        </span>
-        <span>{open ? "−" : "+"}</span>
-      </button>
-      {open ? (
-        <div className="brand-panel-body">
-          <div className="brand-field">
-            <label className="mono-label" htmlFor="brand-logo">
-              Logo or reference image
-            </label>
-            <input
-              id="brand-logo"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={onFile}
-              className="brief-input"
-            />
-            {imageDataUrl ? (
-              <div className="brand-logo-preview">
-                <img src={imageDataUrl} alt="brand" />
-                <button type="button" className="chip" onClick={() => setImage(null)}>
-                  Remove
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="brand-field">
-            <label className="mono-label" htmlFor="brand-style">
-              Style keywords
-            </label>
-            <input
-              id="brand-style"
-              type="text"
-              className="brief-input"
-              placeholder="minimalist, warm, industrial"
-              value={styleKeywords}
-              onChange={(e) => setStyleKeywords(e.target.value)}
-            />
-          </div>
-          <div className="brand-field">
-            <label className="mono-label" htmlFor="brand-color">
-              Primary color
-            </label>
-            <input
-              id="brand-color"
-              type="text"
-              className="brief-input"
-              placeholder="#0A84FF"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-            />
-          </div>
-          <button type="button" className="chip" onClick={clear}>
-            Clear brand
-          </button>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function CaptionCard({
   cap,
   label,
@@ -303,6 +309,8 @@ function CaptionCard({
   businessType,
   niche,
   templateSeed,
+  onImageReady,
+  initialImage,
 }: {
   cap: Caption;
   label: string;
@@ -311,6 +319,13 @@ function CaptionCard({
   businessType: string;
   niche: string;
   templateSeed: number;
+  /* Fires each time this card produces a fresh image. PackResults uses the
+     data URL to (a) reveal the Plan-publish + Save-pack buttons and (b)
+     snapshot everything when Save is clicked. */
+  onImageReady?: (dataUrl: string) => void;
+  /* Optional cached image data URL — restored from localStorage across
+     refreshes so the user doesn't have to regenerate every time. */
+  initialImage?: string;
 }) {
   /* Which of the 20 layouts to render. `pickTemplate` is deterministic so
      the preview and the download always agree, and a Regenerate keeps the
@@ -319,14 +334,70 @@ function CaptionCard({
   const [templateOverride, setTemplateOverride] = useState<number | null>(null);
   const template = templateOverride ?? pickTemplate(templateSeed);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  /* Free upload path — user supplies their own photo instead of hitting the
+     paid FLUX endpoint. Same output shape (data URL), so it plugs into
+     imageState.status === "ready" and every downstream feature (Plan
+     publish, Save pack, download, layout gallery) works unchanged. */
+  const UPLOAD_MAX_BYTES = 4_000_000; // 4MB — bigger than generated images, headroom for phone photos
+  const onUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("That's not an image file.");
+      return;
+    }
+    if (file.size > UPLOAD_MAX_BYTES) {
+      setUploadError(`Image too large — keep it under ${(UPLOAD_MAX_BYTES / 1_000_000).toFixed(0)} MB.`);
+      return;
+    }
+    setUploadError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setImageState({ status: "ready", dataUrl: reader.result, size: "uploaded" });
+        onImageReady?.(reader.result);
+      }
+    };
+    reader.onerror = () => setUploadError("Couldn't read that image.");
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+  const triggerUpload = () => uploadInputRef.current?.click();
   const [copied, setCopied] = useState(false);
   const [imageState, setImageState] = useState<
     | { status: "idle" }
     | { status: "generating" }
     | { status: "ready"; dataUrl: string; size: string }
     | { status: "error"; message: string }
-  >({ status: "idle" });
-  const { styleKeywords, primaryColor, imageDataUrl: logoDataUrl } = useBrand();
+  >(
+    initialImage
+      ? { status: "ready", dataUrl: initialImage, size: "1024x1024" }
+      : { status: "idle" },
+  );
+  /* Two sources of brand info:
+     - SettingsContext (Supabase user_metadata) — the primary one, filled
+       via Settings → Company. Persists across devices.
+     - BrandContext (browser localStorage) — legacy fallback for the older
+       flow. Used only if the newer settings source is empty.
+     Company logo overrides Brand logo, same for primary color. Businesses
+     that upload a logo in Profile → Company get it automatically stamped
+     on every generated post image. */
+  const { styleKeywords, primaryColor: brandPrimary, imageDataUrl: brandLogo } = useBrand();
+  const { settings } = useSettings();
+  const logoDataUrl = settings.company.logo || brandLogo;
+  const primaryColor = settings.company.primaryColor || brandPrimary;
+  /* Per-caption overrides: logo placement + size, hook size/alignment, cta
+     size, padding. Seeded from Settings on first render; Edit-layout
+     popover mutates them locally. */
+  const [layout] = useState<LayoutOverrides>({});
+  const [logoPlacement] = useState<LogoPlacement>(settings.imageStyle.logoPlacement);
+  const [editingLayout, setEditingLayout] = useState(false);
+  /* Free-form layout from the visual editor. When set, it overrides the
+     switch-based template and renders elements at hand-placed coords. */
+  const [customLayout, setCustomLayout] = useState<CustomLayout | null>(null);
 
 
   const copy = async () => {
@@ -357,6 +428,7 @@ function CaptionCard({
         },
       });
       setImageState({ status: "ready", dataUrl: result.dataUrl, size: result.size });
+      onImageReady?.(result.dataUrl);
     } catch (err) {
       setImageState({
         status: "error",
@@ -414,10 +486,25 @@ function CaptionCard({
       </p>
 
       <div className="results-image-slot">
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*"
+          onChange={onUploadFile}
+          style={{ display: "none" }}
+        />
         {imageState.status === "idle" ? (
-          <button type="button" className="chip" onClick={generateImage}>
-            Generate post image
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" className="chip" onClick={generateImage}>
+              Generate post image
+            </button>
+            <button type="button" className="chip" onClick={triggerUpload}>
+              Upload an image for post
+            </button>
+          </div>
+        ) : null}
+        {uploadError ? (
+          <p className="results-status results-status--error mt-2">{uploadError}</p>
         ) : null}
         {imageState.status === "generating" ? (
           <p className="results-status">Generating post image… (10–30s)</p>
@@ -445,6 +532,9 @@ function CaptionCard({
                 logoSrc={logoDataUrl}
                 primaryColor={primaryColor}
                 businessName={businessName}
+                logoPlacement={logoPlacement}
+                layout={layout}
+                customLayout={customLayout}
               />
             </div>
             <p className="mono-label mt-2 opacity-60">
@@ -465,7 +555,37 @@ function CaptionCard({
               <button type="button" className="chip" onClick={generateImage}>
                 Regenerate image
               </button>
+              <button type="button" className="chip" onClick={triggerUpload}>
+                Upload your own
+              </button>
+              <button
+                type="button"
+                className="chip"
+                onClick={() => setEditingLayout(true)}
+              >
+                Edit layout
+              </button>
+              {customLayout ? (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => setCustomLayout(null)}
+                >
+                  Restore template
+                </button>
+              ) : null}
             </div>
+            <LayoutEditor
+              open={editingLayout}
+              onClose={() => setEditingLayout(false)}
+              bgSrc={imageState.dataUrl}
+              hook={cap.hook}
+              cta={cap.cta}
+              logoSrc={logoDataUrl}
+              primaryColor={primaryColor}
+              initial={customLayout ?? undefined}
+              onSave={setCustomLayout}
+            />
             {galleryOpen ? (
               <TemplateGallery
                 current={template}
@@ -480,6 +600,7 @@ function CaptionCard({
                 logoSrc={logoDataUrl}
                 {...(primaryColor !== undefined ? { primaryColor } : {})}
                 businessName={businessName}
+                logoPlacement={logoPlacement}
               />
             ) : null}
           </>
@@ -503,6 +624,7 @@ function TemplateGallery({
   logoSrc,
   primaryColor,
   businessName,
+  logoPlacement,
 }: {
   current: number;
   onPick: (n: number) => void;
@@ -513,6 +635,7 @@ function TemplateGallery({
   logoSrc: string | null;
   primaryColor?: string;
   businessName: string;
+  logoPlacement?: import("./PostTemplate").LogoPlacement;
 }) {
   const templates = Array.from({ length: TEMPLATE_COUNT }, (_, i) => i + 1);
 
@@ -570,6 +693,7 @@ function TemplateGallery({
                   logoSrc={logoSrc}
                   {...(primaryColor !== undefined ? { primaryColor } : {})}
                   businessName={businessName}
+                  {...(logoPlacement !== undefined ? { logoPlacement } : {})}
                 />
                 <span className="template-gallery-badge">{String(t).padStart(2, "0")}</span>
               </button>
@@ -578,5 +702,134 @@ function TemplateGallery({
         </div>
       </div>
     </div>
+  );
+}
+
+/* Inline layout editor — six sliders + placement/alignment chips. All state
+   lives in CaptionCard so each caption edits independently. */
+function EditLayoutPanel({
+  layout,
+  onLayout,
+  logoPlacement,
+  onLogoPlacement,
+  onReset,
+}: {
+  layout: LayoutOverrides;
+  onLayout: (l: LayoutOverrides) => void;
+  logoPlacement: LogoPlacement;
+  onLogoPlacement: (p: LogoPlacement) => void;
+  onReset: () => void;
+}) {
+  const patch = (p: Partial<LayoutOverrides>) => onLayout({ ...layout, ...p });
+  const PLACEMENTS: LogoPlacement[] = ["top-left","top-right","center","bottom-left","bottom-right","none"];
+  const ALIGNS: NonNullable<LayoutOverrides["hookAlign"]>[] = ["left","center","right"];
+  return (
+    <div className="layout-editor">
+      <div className="layout-editor-row">
+        <span className="mono-label layout-editor-label">Logo placement</span>
+        <div className="layout-editor-chips">
+          {PLACEMENTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="chip chip--sm"
+              aria-pressed={logoPlacement === p}
+              onClick={() => onLogoPlacement(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="layout-editor-row">
+        <span className="mono-label layout-editor-label">Hook align</span>
+        <div className="layout-editor-chips">
+          {ALIGNS.map((a) => (
+            <button
+              key={a}
+              type="button"
+              className="chip chip--sm"
+              aria-pressed={(layout.hookAlign ?? "left") === a}
+              onClick={() => patch({ hookAlign: a })}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      </div>
+      <LayoutSlider
+        label="Logo size"
+        value={layout.logoSize ?? 10}
+        min={5}
+        max={25}
+        step={1}
+        suffix="%"
+        onChange={(v) => patch({ logoSize: v })}
+      />
+      <LayoutSlider
+        label="Hook size"
+        value={layout.hookSize ?? 11}
+        min={6}
+        max={14}
+        step={0.5}
+        suffix="cqi"
+        onChange={(v) => patch({ hookSize: v })}
+      />
+      <LayoutSlider
+        label="CTA size"
+        value={layout.ctaSize ?? 2.8}
+        min={2}
+        max={4.5}
+        step={0.1}
+        suffix="cqi"
+        onChange={(v) => patch({ ctaSize: v })}
+      />
+      <LayoutSlider
+        label="Padding"
+        value={layout.padding ?? 6}
+        min={3}
+        max={12}
+        step={0.5}
+        suffix="cqi"
+        onChange={(v) => patch({ padding: v })}
+      />
+      <div className="layout-editor-actions">
+        <button type="button" className="chip chip--sm" onClick={onReset}>Reset</button>
+      </div>
+    </div>
+  );
+}
+
+function LayoutSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="layout-editor-row">
+      <span className="mono-label layout-editor-label">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="layout-editor-slider"
+      />
+      <span className="layout-editor-value">{value}{suffix}</span>
+    </label>
   );
 }

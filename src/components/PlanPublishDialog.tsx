@@ -42,7 +42,18 @@ function localInputToIso(v: string): string {
   return new Date(v).toISOString();
 }
 
-export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function PlanPublishDialog({
+  open,
+  onClose,
+  images = {},
+}: {
+  open: boolean;
+  onClose: () => void;
+  /* Map of caption keys ("ideaIdx-captionIdx") to their generated image
+     data URLs. Only captions that appear as a key here become plannable
+     posts — no point scheduling captions without a visual. */
+  images?: Record<string, string>;
+}) {
   const { user } = useAuth();
   const { pack, brief } = usePackContext();
   const navigate = useNavigate();
@@ -53,28 +64,40 @@ export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: (
   const [notice, setNotice] = useState<string | null>(null);
   const [plan, setPlan] = useState<PlannedPost[]>([]);
 
-  const ideas = useMemo(() => pack?.ideas ?? [], [pack]);
+  /* Build the list of eligible (idea, caption) pairs — only those with a
+     generated image. Iterating idea × caption keeps the order stable
+     (idea 1 caption A, then B, then C, then idea 2 …). */
+  const eligible = useMemo(() => {
+    const ideas = pack?.ideas ?? [];
+    const rows: { kind: string; hook: string; key: string }[] = [];
+    ideas.forEach((idea, i) => {
+      idea.captions.forEach((cap, ci) => {
+        const key = `${i}-${ci}`;
+        if (images[key]) {
+          rows.push({ kind: idea.kind, hook: cap.hook, key });
+        }
+      });
+    });
+    return rows;
+  }, [pack, images]);
 
-  /* Prefill each idea's slot with today+i evening — spread five posts across
-     five different days by default. Users override via inputs or suggestion
-     chips. New URL every save, so we always seed fresh — no user_metadata
-     lookup needed. */
+  /* Seed one row per eligible caption, spread across future evenings. */
   useEffect(() => {
     if (!open) return;
-    const seeded = ideas.map((idea, i) => {
+    const seeded: PlannedPost[] = eligible.map((row, i) => {
       const d = new Date();
       d.setDate(d.getDate() + (i + 1));
       d.setHours(18, 0, 0, 0);
       return {
-        kind: idea.kind,
-        hook: idea.captions[0]?.hook ?? idea.title,
+        kind: row.kind,
+        hook: row.hook,
         scheduledAt: d.toISOString(),
       };
     });
     setPlan(seeded);
     setError(null);
     setNotice(null);
-  }, [open, ideas]);
+  }, [open, eligible]);
 
   useEffect(() => {
     if (open) {
@@ -169,7 +192,12 @@ export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: (
             <p className="mono-label">Plan · publish</p>
             <h2 className="display settings-title mt-2">Schedule your pack</h2>
           </div>
-          <button type="button" className="settings-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="settings-close" aria-label="Close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                 strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
         </header>
 
         <div className="settings-body plan-body">
@@ -195,7 +223,10 @@ export function PlanPublishDialog({ open, onClose }: { open: boolean; onClose: (
           </div>
 
           {plan.length === 0 && (
-            <p className="settings-hint mt-4">Generate a pack first — there's nothing to plan yet.</p>
+            <p className="settings-hint mt-4">
+              Nothing plannable yet — generate a post image (or upload one) on the pack,
+              then reopen this. Only captions that have a visual show up here.
+            </p>
           )}
 
           <ul className="plan-list">

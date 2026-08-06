@@ -17,6 +17,38 @@ export function pickTemplate(seed: number): number {
   return (s % TEMPLATE_COUNT) + 1;
 }
 
+export type LogoPlacement =
+  | "top-left"
+  | "top-right"
+  | "center"
+  | "bottom-left"
+  | "bottom-right"
+  | "none";
+
+/* Per-post layout overrides — driven by the Edit-layout popover. Every
+   value maps to a CSS custom property on the .pt element that the base
+   styles read via var(--…), with a fallback so unset values keep their
+   template default. */
+export type LayoutOverrides = {
+  logoSize?: number;   // logo width in %, 5–25
+  hookSize?: number;   // hook font-size in cqi, 6–14
+  ctaSize?: number;    // cta font-size in cqi, 2–4.5
+  padding?: number;    // stage padding in cqi, 3–12
+  hookAlign?: "left" | "center" | "right";
+};
+
+/* Free-form per-caption boxes from the visual editor. When set, the
+   template renders elements absolutely at these coords/sizes instead of
+   using the switch-based layout. All values are % of the 1:1 canvas. */
+export type CustomBox = { x: number; y: number; w: number; h: number };
+export type CustomLayout = {
+  hook: CustomBox;
+  cta: CustomBox;
+  logo?: CustomBox;
+  hookColor?: string;
+  ctaColor?: string;
+};
+
 type Props = {
   template: number;
   hook: string;
@@ -25,6 +57,14 @@ type Props = {
   logoSrc?: string | null;
   primaryColor?: string;
   businessName?: string;
+  /* Where the company logo lands on the post. Overrides each template's
+     default (which was always bottom-right and sometimes collided with
+     centered CTAs). "none" hides both the logo and the wordmark fallback. */
+  logoPlacement?: LogoPlacement;
+  layout?: LayoutOverrides;
+  /* If set, replaces the template's built-in layout with free-form absolute
+     positioning (from the visual editor). */
+  customLayout?: CustomLayout | null;
 };
 
 export function PostTemplate({
@@ -35,24 +75,100 @@ export function PostTemplate({
   logoSrc,
   primaryColor,
   businessName,
+  logoPlacement = "bottom-right",
+  layout,
+  customLayout,
 }: Props) {
   const accent = primaryColor?.trim() || "#D8FF3E";
   const t = ((Math.abs(Math.floor(template - 1)) % TEMPLATE_COUNT) + 1);
-  const cls = `pt pt-${String(t).padStart(2, "0")}`;
+  const alignCls = layout?.hookAlign ? ` pt-align-${layout.hookAlign}` : "";
+  const cls = `pt pt-${String(t).padStart(2, "0")} pt-logo-${logoPlacement}${alignCls}`;
   const brand = businessName || "Brand";
 
   const Bg = () => <img className="pt-bg" src={bgSrc} alt="" crossOrigin="anonymous" />;
-  const Logo = () =>
-    logoSrc ? (
+  const Logo = () => {
+    if (logoPlacement === "none") return null;
+    return logoSrc ? (
       <img className="pt-logo" src={logoSrc} alt="" aria-hidden="true" crossOrigin="anonymous" />
     ) : (
       <div className="pt-brand">{brand}</div>
     );
+  };
 
   /* Each branch is a small JSX tree — the CSS in postTemplate.css does the
      heavy lifting. Keep the markup as consistent as reasonable so the CSS
      selectors stay simple. */
-  const style = { ["--acc" as string]: accent } as React.CSSProperties;
+  const style: React.CSSProperties = { ["--acc" as string]: accent };
+  if (layout?.logoSize != null)
+    (style as Record<string, string>)["--pt-logo-size"] = `${layout.logoSize}%`;
+  if (layout?.hookSize != null)
+    (style as Record<string, string>)["--pt-hook-size"] = `${layout.hookSize}cqi`;
+  if (layout?.ctaSize != null)
+    (style as Record<string, string>)["--pt-cta-size"] = `${layout.ctaSize}cqi`;
+  if (layout?.padding != null)
+    (style as Record<string, string>)["--pt-padding"] = `${layout.padding}cqi`;
+
+  /* Custom layout takes priority — the user has hand-placed everything in
+     the visual editor. Renders elements at their absolute % coords. */
+  if (customLayout) {
+    return (
+      <div className={`pt pt-custom pt-logo-${logoPlacement}`} role="img" aria-label={hook} style={style}>
+        <Bg />
+        <div className="pt-veil" />
+        <div
+          className="pt-custom-hook"
+          style={{
+            left: `${customLayout.hook.x}%`,
+            top: `${customLayout.hook.y}%`,
+            width: `${customLayout.hook.w}%`,
+            height: `${customLayout.hook.h}%`,
+            color: customLayout.hookColor || "#ffffff",
+          }}
+        >
+          {hook}
+        </div>
+        <div
+          className="pt-custom-cta"
+          style={{
+            left: `${customLayout.cta.x}%`,
+            top: `${customLayout.cta.y}%`,
+            width: `${customLayout.cta.w}%`,
+            height: `${customLayout.cta.h}%`,
+            color: customLayout.ctaColor || accent,
+          }}
+        >
+          → {cta}
+        </div>
+        {customLayout.logo && logoSrc ? (
+          <img
+            src={logoSrc}
+            alt=""
+            aria-hidden="true"
+            crossOrigin="anonymous"
+            className="pt-custom-logo"
+            style={{
+              left: `${customLayout.logo.x}%`,
+              top: `${customLayout.logo.y}%`,
+              width: `${customLayout.logo.w}%`,
+              height: `${customLayout.logo.h}%`,
+            }}
+          />
+        ) : customLayout.logo ? (
+          <div
+            className="pt-custom-brand"
+            style={{
+              left: `${customLayout.logo.x}%`,
+              top: `${customLayout.logo.y}%`,
+              width: `${customLayout.logo.w}%`,
+              height: `${customLayout.logo.h}%`,
+            }}
+          >
+            {brand}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   switch (t) {
     case 1: // Editorial (current design)

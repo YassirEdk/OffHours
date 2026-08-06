@@ -44,7 +44,7 @@
   position: absolute;
   inset: 0;
   z-index: 2;
-  padding: 6cqi;
+  padding: var(--pt-padding, 6cqi);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -58,7 +58,7 @@
      No text-wrap: balance — Chrome's balance algorithm produces different
      line breaks at different render sizes even at identical proportions,
      which was making the preview and export wrap differently. */
-  font-size: 11cqi;
+  font-size: var(--pt-hook-size, 11cqi);
   line-height: 0.95;
   letter-spacing: -0.03em;
   color: #fff;
@@ -83,7 +83,7 @@
   margin: 3cqi 0 0 0;
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 500;
-  font-size: 2.8cqi;
+  font-size: var(--pt-cta-size, 2.8cqi);
   line-height: 1.25;
   color: #fff;
   overflow-wrap: break-word;
@@ -670,5 +670,111 @@
   width: 32%;
   height: auto;
   max-height: 14%;
+  object-fit: contain;
+}
+
+/* Logo placement overrides — win over any per-template positioning so the
+   user-selected placement in Settings → Image preferences always sticks.
+   Also caps the logo width/height smaller than the old 14% default so it
+   doesn't collide with the CTA on centered layouts. */
+.pt .pt-logo,
+.pt .pt-brand {
+  z-index: 3;
+}
+.pt-logo-none .pt-logo,
+.pt-logo-none .pt-brand { display: none !important; }
+
+.pt-logo-top-left .pt-logo,
+.pt-logo-top-left .pt-brand {
+  top: 5%; left: 5%; right: auto; bottom: auto;
+}
+.pt-logo-top-right .pt-logo,
+.pt-logo-top-right .pt-brand {
+  top: 5%; right: 5%; left: auto; bottom: auto;
+}
+.pt-logo-bottom-left .pt-logo,
+.pt-logo-bottom-left .pt-brand {
+  bottom: 5%; left: 5%; right: auto; top: auto;
+}
+.pt-logo-bottom-right .pt-logo,
+.pt-logo-bottom-right .pt-brand {
+  bottom: 5%; right: 5%; left: auto; top: auto;
+}
+.pt-logo-center .pt-logo,
+.pt-logo-center .pt-brand {
+  top: 50%; left: 50%; right: auto; bottom: auto;
+  transform: translate(-50%, -50%);
+}
+
+/* Size cap — smaller than the old default (14%) so it stops eating the CTA
+   on centered layouts. Uses the smaller of width/height so tall or wide
+   logos still fit. */
+.pt-logo-top-left .pt-logo,
+.pt-logo-top-right .pt-logo,
+.pt-logo-bottom-left .pt-logo,
+.pt-logo-bottom-right .pt-logo {
+  width: var(--pt-logo-size, 10%);
+  max-width: var(--pt-logo-size, 10%);
+  max-height: var(--pt-logo-size, 10%);
+  height: auto;
+  object-fit: contain;
+}
+.pt-logo-center .pt-logo {
+  width: var(--pt-logo-size, 16%);
+  max-width: var(--pt-logo-size, 16%);
+  max-height: var(--pt-logo-size, 16%);
+  opacity: 0.9;
+}
+
+/* Hook alignment overrides — flex container inside .pt-stage. */
+.pt-align-left  .pt-stage { align-items: flex-start; text-align: left; }
+.pt-align-left  .pt-hook, .pt-align-left  .pt-cta { text-align: left; }
+.pt-align-center .pt-stage { align-items: center; text-align: center; }
+.pt-align-center .pt-hook, .pt-align-center .pt-cta { text-align: center; }
+.pt-align-right .pt-stage { align-items: flex-end; text-align: right; }
+.pt-align-right .pt-hook, .pt-align-right .pt-cta { text-align: right; }
+
+/* Free-form custom layout — activated when the user hand-places elements
+   in the visual editor. Elements are absolutely positioned via inline
+   left/top/width/height as percentages of the canvas. */
+.pt-custom .pt-custom-hook,
+.pt-custom .pt-custom-cta,
+.pt-custom .pt-custom-brand {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  overflow: hidden;
+  color: #fff;
+}
+.pt-custom .pt-custom-hook {
+  font-family: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 900;
+  font-variation-settings: "wdth" 100, "wght" 900;
+  font-size: clamp(1rem, 9cqi, 20cqi);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  align-items: flex-start;
+  overflow-wrap: break-word;
+  text-shadow: 0 0 0.8cqi rgba(0,0,0,0.65), 0 0.15cqi 0.4cqi rgba(0,0,0,0.75);
+}
+.pt-custom .pt-custom-cta {
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  font-size: clamp(0.6rem, 2.8cqi, 6cqi);
+  line-height: 1.25;
+  align-items: center;
+  text-shadow: 0 0 0.6cqi rgba(0,0,0,0.7), 0 0.1cqi 0.3cqi rgba(0,0,0,0.8);
+}
+.pt-custom .pt-custom-brand {
+  font-weight: 700;
+  font-size: 3cqi;
+  letter-spacing: 0.05em;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 0 0.6cqi rgba(0,0,0,0.7);
+}
+.pt-custom .pt-custom-logo {
+  position: absolute;
+  z-index: 3;
   object-fit: contain;
 }

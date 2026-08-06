@@ -54,14 +54,46 @@ export function PackProvider({
      slow earlier call from clobbering a faster later one. */
   const runToken = useRef(0);
 
+  /* Cache generated packs in localStorage keyed by the encoded brief string.
+     A refresh on /pack?brief=… hits the cache and skips the Groq call
+     entirely — no spinner, no cost. Cache never expires; a fresh brief
+     (different encoded string) misses it and regenerates. */
+  const cacheKey = (b: Brief) => `pack:v1:${JSON.stringify(b)}`;
+  const readCache = (b: Brief): ContentPack | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(cacheKey(b));
+      return raw ? (JSON.parse(raw) as ContentPack) : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeCache = (b: Brief, pack: ContentPack) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(cacheKey(b), JSON.stringify(pack));
+    } catch {
+      // storage full — silently give up
+    }
+  };
+
   const generate = useCallback(async (nextBrief: Brief) => {
     const token = ++runToken.current;
+    // Cache short-circuit — no network, no spinner.
+    const cached = readCache(nextBrief);
+    if (cached) {
+      setAiPack(cached);
+      setStatus("ready");
+      setError(null);
+      return;
+    }
     setStatus("generating");
     setError(null);
     setAiPack(null);
     try {
       const pack = await generatePackAi({ data: nextBrief });
       if (runToken.current !== token) return;
+      writeCache(nextBrief, pack);
       setAiPack(pack);
       setStatus("ready");
     } catch (err) {

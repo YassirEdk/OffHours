@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { AuthDialog } from "@/components/AuthDialog";
-import { SettingsDialog } from "@/components/SettingsDialog";
+import { SettingsDialog, type SettingsVariant } from "@/components/SettingsDialog";
 import { useAuth } from "@/context/AuthContext";
 import { useSettings } from "@/context/SettingsContext";
+import { usePackContext } from "@/context/PackContext";
 
 const BTN =
   "display text-lg leading-none cursor-pointer text-[#f5f3ef] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:opacity-70";
@@ -10,7 +12,28 @@ const BTN =
 export function AuthNav() {
   const { user, loading, signOut } = useAuth();
   const { settings } = useSettings();
+  const { reset } = usePackContext();
+  const navigate = useNavigate();
+  /* Two states so the variant doesn't flip mid-close and flash the other
+     tab set. `settingsOpen` drives mount/close; `variant` sticks to whichever
+     button opened the dialog until it fully unmounts. */
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [variant, setVariant] = useState<SettingsVariant>("settings");
+  const openSettings = (v: SettingsVariant) => {
+    setVariant(v);
+    setSettingsOpen(true);
+  };
+
+  /* Sign out and drop back to the landing page in a clean state:
+     - some routes (/plan/$id) are owner-scoped and would render "This is
+       private" if we stayed put after clearing the session
+     - reset the pack too so the ex-user's generated pack (and its
+       "Back to the example" chip) doesn't linger on / after signout */
+  const onSignOut = async () => {
+    await signOut();
+    reset();
+    await navigate({ to: "/" });
+  };
 
   if (loading) return null;
 
@@ -24,8 +47,8 @@ export function AuthNav() {
         <button
           type="button"
           className="auth-nav-avatar-btn"
-          onClick={() => setSettingsOpen(true)}
-          aria-label={`Open settings for ${displayName}`}
+          onClick={() => openSettings("profile")}
+          aria-label={`Open profile for ${displayName}`}
           title={displayName}
         >
           {avatarUrl ? (
@@ -39,7 +62,7 @@ export function AuthNav() {
         <button
           type="button"
           className="auth-icon-btn"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => openSettings("settings")}
           aria-label="Settings"
           title="Settings"
         >
@@ -60,7 +83,7 @@ export function AuthNav() {
         </button>
         <button
           type="button"
-          onClick={() => signOut()}
+          onClick={onSignOut}
           className="auth-signout"
           aria-label="Sign out"
         >
@@ -82,7 +105,11 @@ export function AuthNav() {
             <path d="M15 12H3" />
           </svg>
         </button>
-        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          variant={variant}
+        />
       </div>
     );
   }

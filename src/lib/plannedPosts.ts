@@ -75,6 +75,33 @@ export const getPlan = createServerFn({ method: "POST" })
     return { plan: row as PlanRow };
   });
 
+export const listPlans = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { userId: string })
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      plans: { id: string; brief_name: string | null; created_at: string; count: number }[];
+    }> => {
+      const admin = adminClient();
+      const { data: rows, error } = await admin
+        .from("plans")
+        .select("id, brief_name, created_at, posts")
+        .eq("user_id", data.userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw new Error(`List plans failed: ${error.message}`);
+      return {
+        plans: (rows ?? []).map((r) => ({
+          id: r.id as string,
+          brief_name: (r.brief_name as string | null) ?? null,
+          created_at: r.created_at as string,
+          count: Array.isArray(r.posts) ? (r.posts as unknown[]).length : 0,
+        })),
+      };
+    },
+  );
+
 export const deletePlan = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { id: string; userId: string })
   .handler(async ({ data }): Promise<{ ok: true }> => {

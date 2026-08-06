@@ -1295,10 +1295,16 @@ button:focus-visible > .logo .logo-mark {
   background: transparent;
   color: rgba(245, 243, 239, 0.7);
   cursor: pointer;
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   line-height: 1;
   transition: color 0.2s ease, border-color 0.2s ease, transform 0.25s ease;
   flex: 0 0 auto;
+  /* Center the glyph optically inside the circle — flexbox handles both
+     axes better than font-size fiddling with padding. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 .settings-close:hover, .settings-close:focus-visible {
   color: #f5f3ef;
@@ -2401,10 +2407,9 @@ button:focus-visible > .logo .logo-mark {
 }
 .results-head {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1.25rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid rgba(245, 243, 239, 0.14);
 }
@@ -2412,7 +2417,13 @@ button:focus-visible > .logo .logo-mark {
   display: flex;
   gap: 0.6rem;
   align-items: center;
+  flex-wrap: wrap;
+  align-self: stretch;
 }
+/* Split marker — everything after this chip gets pushed to the right edge.
+   Currently sits on the "Copy the whole pack" button, so Back + Copy stay
+   grouped on the left and Save/Plan publish cluster right. */
+.results-head-split { margin-inline-end: auto; }
 .results-head-brand {
   display: flex;
   align-items: flex-start;
@@ -3448,4 +3459,657 @@ button:focus-visible > .logo .logo-mark {
   line-height: 1.45;
   font-style: italic;
   color: rgba(245, 243, 239, 0.85);
+}
+
+.results-head-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(245, 243, 239, 0.14);
+  align-self: center;
+  margin: 0 0.15rem;
+}
+
+/* /pack top bar — Offhours logo hugs the top-left corner, auth chrome the
+   top-right. Full-bleed padding (no shared container) so the logo sits at
+   the actual viewport corner instead of the results-page indentation. */
+.results-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem clamp(1.25rem, 4vw, 2.5rem);
+  border-bottom: 1px solid rgba(245, 243, 239, 0.06);
+}
+.results-topbar-logo {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Settings → History tab — list of saved plans, newest first. */
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.history-row-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(245, 243, 239, 0.1);
+  background: rgba(245, 243, 239, 0.02);
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.history-row-link:hover,
+.history-row-link:focus-visible {
+  outline: none;
+  border-color: rgba(245, 243, 239, 0.35);
+  background: rgba(245, 243, 239, 0.05);
+  transform: translateX(2px);
+}
+.history-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+.history-row-title {
+  font-weight: 600;
+  color: #f5f3ef;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-row-meta {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: rgba(245, 243, 239, 0.55);
+  text-transform: uppercase;
+}
+.history-row-arrow {
+  color: var(--accent, #d8ff3e);
+  font-size: 1.1rem;
+  transition: transform 0.25s ease;
+}
+.history-row-link:hover .history-row-arrow,
+.history-row-link:focus-visible .history-row-arrow { transform: translateX(3px); }
+
+.history-row-badge {
+  display: inline-block;
+  padding: 0.12rem 0.4rem;
+  margin-right: 0.5rem;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.history-row-badge--pack {
+  color: var(--accent, #d8ff3e);
+  border-color: color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent);
+  background: color-mix(in srgb, var(--accent, #d8ff3e) 10%, transparent);
+}
+.history-row-badge--plan {
+  color: #d62976;
+  border-color: rgba(214, 41, 118, 0.5);
+  background: rgba(214, 41, 118, 0.1);
+}
+
+/* Custom color picker — dark popover with preset palette, hex input, and a
+   hidden native <input type="color"> behind an eyedropper for full-range
+   picking. Matches the site's hairline vocabulary. */
+.picker-wrap { position: relative; display: inline-block; }
+.picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  background: rgba(245, 243, 239, 0.04);
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  color: #f5f3ef;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.picker-trigger:hover,
+.picker-trigger:focus-visible {
+  outline: none;
+  border-color: rgba(245, 243, 239, 0.4);
+  background: rgba(245, 243, 239, 0.06);
+}
+.picker-trigger[aria-expanded="true"] {
+  border-color: var(--accent, #d8ff3e);
+}
+.picker-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid rgba(245, 243, 239, 0.2);
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.picker-value { flex: 1; text-align: left; letter-spacing: 0.1em; }
+
+.picker-popover {
+  /* Positioned inline via JS (fixed coords tied to trigger rect) so it can
+     escape any scrolling container. */
+  z-index: 200;
+  width: 260px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(22, 24, 26, 0.98), rgba(14, 15, 17, 0.98)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.18);
+  border-radius: 10px;
+  box-shadow:
+    0 20px 40px -12px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(245, 243, 239, 0.03) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: picker-in 0.16s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.picker-popover { animation-name: picker-in; }
+@keyframes picker-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.picker-preview {
+  position: relative;
+  height: 56px;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 243, 239, 0.15);
+  overflow: hidden;
+}
+.picker-eyedropper {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid rgba(10, 11, 12, 0.35);
+  background: rgba(10, 11, 12, 0.55);
+  color: #f5f3ef;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+.picker-eyedropper:hover,
+.picker-eyedropper:focus-visible {
+  outline: none;
+  background: rgba(10, 11, 12, 0.8);
+}
+.picker-native {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.picker-presets {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.picker-preset {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  border: 1px solid rgba(245, 243, 239, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.picker-preset:hover,
+.picker-preset:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: rgba(245, 243, 239, 0.5);
+}
+.picker-preset.is-active {
+  border-color: var(--accent, #d8ff3e);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #d8ff3e) 40%, transparent);
+}
+
+.picker-hex-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(245, 243, 239, 0.08);
+}
+.picker-hex-label {
+  color: rgba(245, 243, 239, 0.55);
+  min-width: 30px;
+}
+.picker-hex-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(245, 243, 239, 0.18);
+  color: #f5f3ef;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  padding: 4px 2px;
+  text-transform: uppercase;
+  transition: border-color 0.2s ease;
+}
+.picker-hex-input:focus {
+  outline: none;
+  border-bottom-color: var(--accent, #d8ff3e);
+}
+
+/* HSV picker — 2D saturation/value plane + horizontal hue strip. Uses
+   pointer events so it works on touch + mouse. Thumbs are absolutely
+   positioned inside their tracks with a hard border for legibility on any
+   underlying colour. */
+.picker-sv {
+  position: relative;
+  height: 130px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(245, 243, 239, 0.15);
+  touch-action: none;
+  cursor: crosshair;
+}
+.picker-sv-white {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+.picker-sv-black {
+  position: absolute; inset: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+  pointer-events: none;
+}
+.picker-sv-thumb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.picker-hue {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #ff0000 0%,
+    #ffff00 17%,
+    #00ff00 33%,
+    #00ffff 50%,
+    #0000ff 67%,
+    #ff00ff 83%,
+    #ff0000 100%
+  );
+  border: 1px solid rgba(245, 243, 239, 0.15);
+  touch-action: none;
+  cursor: pointer;
+}
+.picker-hue-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.35);
+  background: transparent;
+  pointer-events: none;
+}
+
+/* Back button — ghost hairline pill with a small icon tile that flips the
+   arrow left on hover. Filled state on hover for a tactile feel; stays
+   quiet on the page while resting. */
+.results-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.85rem 0.35rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 243, 239, 0.16);
+  background: transparent;
+  color: rgba(245, 243, 239, 0.85);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.25s ease;
+}
+.results-back:hover,
+.results-back:focus-visible {
+  outline: none;
+  color: #0a0b0c;
+  background: var(--accent, #d8ff3e);
+  border-color: var(--accent, #d8ff3e);
+  transform: translateX(-2px);
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent);
+}
+.results-back-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(245, 243, 239, 0.08);
+  color: inherit;
+  transition: transform 0.25s ease, background-color 0.2s ease;
+}
+.results-back:hover .results-back-arrow,
+.results-back:focus-visible .results-back-arrow {
+  background: rgba(10, 11, 12, 0.15);
+  transform: translateX(-2px);
+}
+.results-back-label { line-height: 1; }
+@media (max-width: 520px) {
+  .results-back { padding: 0.35rem 0.45rem 0.35rem 0.4rem; }
+  .results-back-label { display: none; }
+}
+
+/* Per-caption layout editor — sliders + placement chips, inline under the
+   post preview. Compact so the pack page keeps its density. */
+.layout-editor {
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  background: rgba(245, 243, 239, 0.03);
+  border: 1px solid rgba(245, 243, 239, 0.1);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.layout-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.layout-editor-label {
+  min-width: 92px;
+  color: rgba(245, 243, 239, 0.65);
+}
+.layout-editor-chips {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.layout-editor-slider {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent, #d8ff3e);
+  height: 4px;
+}
+.layout-editor-value {
+  min-width: 48px;
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  color: rgba(245, 243, 239, 0.8);
+  letter-spacing: 0.08em;
+}
+.layout-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(245, 243, 239, 0.08);
+}
+
+/* Visual layout editor — Canva-style modal with a 1:1 canvas, draggable
+   elements, and corner resize handles. */
+.editor-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vh, 3rem);
+}
+.editor-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  cursor: pointer;
+  background:
+    radial-gradient(1000px 700px at 50% 50%, rgba(10, 11, 12, 0.6) 0%, rgba(6, 7, 8, 0.94) 70%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: settings-backdrop-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.editor-panel {
+  --accent: #d8ff3e;
+  position: relative;
+  z-index: 1;
+  width: min(94vw, 720px);
+  max-height: min(94vh, 900px);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background:
+    linear-gradient(180deg, rgba(18, 20, 22, 0.96), rgba(10, 11, 12, 0.98)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.16);
+  color: #f5f3ef;
+  animation: settings-panel-in 0.44s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.7);
+}
+.editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.editor-title { font-size: clamp(1.1rem, 2vw, 1.4rem); line-height: 1; }
+.editor-canvas {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 243, 239, 0.15);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+.editor-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.35) 100%);
+}
+.editor-item {
+  position: absolute;
+  cursor: move;
+  color: #fff;
+  outline: 1px dashed rgba(245, 243, 239, 0.25);
+  outline-offset: -1px;
+  display: flex;
+  overflow: hidden;
+}
+.editor-item.is-selected {
+  outline: 2px solid var(--accent, #d8ff3e);
+  outline-offset: 0;
+}
+.editor-hook {
+  font-family: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 900;
+  font-size: clamp(1rem, 6cqi, 4rem);
+  line-height: 0.95;
+  color: #fff;
+  padding: 0;
+  overflow-wrap: break-word;
+  width: 100%;
+  text-shadow: 0 0 0.8cqi rgba(0,0,0,0.65), 0 0.15cqi 0.4cqi rgba(0,0,0,0.75);
+}
+.editor-cta {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  font-size: clamp(0.6rem, 2cqi, 1.5rem);
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  width: 100%;
+  align-items: center;
+  display: flex;
+  text-shadow: 0 0 0.6cqi rgba(0,0,0,0.7);
+}
+.editor-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.editor-logo-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.4);
+  border: 1px dashed rgba(245, 243, 239, 0.4);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  color: rgba(245, 243, 239, 0.75);
+}
+.editor-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--accent, #d8ff3e);
+  border: 1px solid #0a0b0c;
+  border-radius: 2px;
+  z-index: 4;
+}
+.editor-handle--nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.editor-handle--ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.editor-handle--sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.editor-handle--se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.editor-toolbar {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.35rem 0;
+  border-top: 1px solid rgba(245, 243, 239, 0.08);
+  border-bottom: 1px solid rgba(245, 243, 239, 0.08);
+}
+.editor-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+/* Editor toolbar colour swatch — swatch + label + tiny palette popover. */
+.editor-color { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; }
+.editor-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(245, 243, 239, 0.25);
+  padding: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+.editor-color-swatch:hover,
+.editor-color-swatch:focus-visible {
+  outline: none;
+  border-color: var(--accent, #d8ff3e);
+  transform: translateY(-1px);
+}
+.editor-color-label {
+  color: rgba(245, 243, 239, 0.65);
+  white-space: nowrap;
+}
+.editor-color-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(22, 24, 26, 0.98), rgba(14, 15, 17, 0.98)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.7);
+  min-width: 220px;
+  animation: picker-in 0.16s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.editor-color-presets {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+.editor-color-preset {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  border: 1px solid rgba(245, 243, 239, 0.15);
+  padding: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+.editor-color-preset:hover,
+.editor-color-preset:focus-visible {
+  outline: none;
+  border-color: rgba(245, 243, 239, 0.5);
+  transform: translateY(-1px);
+}
+.editor-color-preset.is-active {
+  border-color: var(--accent, #d8ff3e);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #d8ff3e) 40%, transparent);
+}
+.editor-color-hex {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px solid rgba(245, 243, 239, 0.08);
+}
+.editor-color-hex input[type="text"] {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(245, 243, 239, 0.18);
+  color: #f5f3ef;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  padding: 3px 2px;
+  text-transform: uppercase;
+}
+.editor-color-hex input[type="text"]:focus {
+  outline: none;
+  border-bottom-color: var(--accent, #d8ff3e);
 }

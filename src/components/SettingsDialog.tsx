@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "@tanstack/react-router";
 import { useSettings, DEFAULT_SETTINGS, type BrandSettings, type LogoPlacement } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { startInstagramOauth, disconnectInstagram } from "@/lib/instagramOauth";
 import { startFacebookOauth, disconnectFacebook } from "@/lib/facebookOauth";
+import { listPlans } from "@/lib/plannedPosts";
+import { listSavedPacks } from "@/lib/savedPacks";
 
 const CLOSE_MS = 380;
-const MAX_IMAGE_BYTES = 900_000; // ~900KB after base64 fits comfortably in user_metadata
+const MAX_IMAGE_BYTES = 1_500_000; // 1.5MB — base64 inflates it to ~2MB in user_metadata, still fine
 
 const PLACEMENTS: { value: LogoPlacement; label: string }[] = [
   { value: "top-left", label: "Top left" },
@@ -17,13 +20,26 @@ const PLACEMENTS: { value: LogoPlacement; label: string }[] = [
   { value: "none", label: "None" },
 ];
 
-type Tab = "profile" | "company" | "style";
+type Tab = "profile" | "company" | "style" | "published" | "history";
+export type SettingsVariant = "profile" | "settings";
 
-export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/* variant switches which set of tabs is shown:
+   - "profile"  → Profile + Company (avatar click)
+   - "settings" → Image preferences + Published + History (gear click) */
+export function SettingsDialog({
+  open,
+  onClose,
+  variant = "settings",
+}: {
+  open: boolean;
+  onClose: () => void;
+  variant?: SettingsVariant;
+}) {
   const { settings, saving, save } = useSettings();
   const { user, refresh } = useAuth();
   const [draft, setDraft] = useState<BrandSettings>(settings);
-  const [tab, setTab] = useState<Tab>("profile");
+  const initialTab: Tab = variant === "profile" ? "profile" : "style";
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [mounted, setMounted] = useState(open);
@@ -101,11 +117,11 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
   useEffect(() => {
     if (open) {
       setDraft(settings);
-      setTab("profile");
+      setTab(variant === "profile" ? "profile" : "style");
       setError(null);
       setNotice(null);
     }
-  }, [open, settings]);
+  }, [open, settings, variant]);
 
   useEffect(() => {
     if (open) {
@@ -154,8 +170,9 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       setError(error);
       return;
     }
-    setNotice("Saved.");
-    window.setTimeout(() => setNotice(null), 1400);
+    /* Silent success — close the panel instead of flashing a "Saved." toast.
+       Errors still surface via setError above. */
+    onClose();
   }
 
   return createPortal(
@@ -172,8 +189,10 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       >
         <header className="settings-head">
           <div>
-            <p className="mono-label">Settings</p>
-            <h2 className="display settings-title mt-2">Your workspace</h2>
+            <p className="mono-label">{variant === "profile" ? "Profile" : "Settings"}</p>
+            <h2 className="display settings-title mt-2">
+              {variant === "profile" ? "Your Profile" : "Your workspace"}
+            </h2>
           </div>
           <button
             type="button"
@@ -181,14 +200,35 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             aria-label="Close settings"
             onClick={onClose}
           >
-            ×
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         </header>
 
         <nav className="settings-tabs" role="tablist" aria-label="Settings sections">
-          <TabButton current={tab} value="profile" onSelect={setTab}>Profile</TabButton>
-          <TabButton current={tab} value="company" onSelect={setTab}>Company</TabButton>
-          <TabButton current={tab} value="style" onSelect={setTab}>Image style</TabButton>
+          {variant === "profile" ? (
+            <>
+              <TabButton current={tab} value="profile" onSelect={setTab}>Profile</TabButton>
+              <TabButton current={tab} value="company" onSelect={setTab}>Company</TabButton>
+            </>
+          ) : (
+            <>
+              <TabButton current={tab} value="style" onSelect={setTab}>Image preferences</TabButton>
+              <TabButton current={tab} value="published" onSelect={setTab}>Published</TabButton>
+              <TabButton current={tab} value="history" onSelect={setTab}>Saved</TabButton>
+            </>
+          )}
         </nav>
 
         <div className="settings-body">
@@ -196,7 +236,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             <section className="settings-section">
               <ImagePickerRow
                 label="Profile photo"
-                hint="Square works best. Under 900KB."
+                hint="Square works best. Under 1.5 MB."
                 value={draft.profile.photo}
                 onChange={(photo) => patchProfile({ photo })}
                 onError={setError}
@@ -215,7 +255,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             <section className="settings-section">
               <ImagePickerRow
                 label="Company logo"
-                hint="PNG with transparency reads best. Under 900KB."
+                hint="PNG with transparency reads best. Under 1.5 MB."
                 value={draft.company.logo}
                 onChange={(logo) => patchCompany({ logo })}
                 onError={setError}
@@ -309,6 +349,13 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             </section>
           )}
 
+          {tab === "history" && (
+            <HistorySection userId={user?.id ?? null} onClose={onClose} mode="packs" />
+          )}
+          {tab === "published" && (
+            <HistorySection userId={user?.id ?? null} onClose={onClose} mode="plans" />
+          )}
+
           {error && (
             <p className="auth-error mt-3" role="alert">
               {error}
@@ -397,6 +444,14 @@ function TextRow({
   );
 }
 
+/* Curated brand-palette suggestions — one nice colour per hue family, biased
+   toward saturations that read well on dark UI. Users can still type any
+   hex or pick freely via the native color input tucked behind the swatch. */
+const COLOR_PRESETS = [
+  "#d8ff3e", "#3ef0d8", "#4ea8ff", "#a06bff", "#ff6bd2", "#ff5c5c",
+  "#ff9a3c", "#ffd93c", "#7fe17f", "#0a0b0c", "#f5f3ef", "#8892a6",
+];
+
 function ColorRow({
   label,
   value,
@@ -406,24 +461,122 @@ function ColorRow({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  /* Fixed-position style computed from the trigger's viewport rect so the
+     popover can escape the scrolling settings body. Recomputed on open,
+     window resize, and scroll. */
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({});
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const PICK_W = 260;
+    const PICK_H = 340;
+    const M = 12; // viewport margin
+    const compute = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const roomBelow = window.innerHeight - r.bottom - M;
+      const flipUp = roomBelow < PICK_H && r.top - M > roomBelow;
+      const top = flipUp ? Math.max(M, r.top - PICK_H - 8) : r.bottom + 8;
+      // Right-align if the trigger sits close to the right edge.
+      const wantLeft = r.left;
+      const maxLeft = window.innerWidth - PICK_W - M;
+      const left = Math.min(Math.max(M, wantLeft), maxLeft);
+      setPopStyle({ position: "fixed", top: `${top}px`, left: `${left}px`, width: `${PICK_W}px` });
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, true);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute, true);
+    };
+  }, [open]);
+
+  /* Close the popover on outside click / Esc so it never sticks open. */
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const normalise = (v: string) => {
+    const trimmed = v.trim();
+    if (!trimmed) return trimmed;
+    return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  };
+
   return (
     <div className="settings-field">
       <span className="mono-label">{label}</span>
-      <div className="settings-color-row">
-        <input
-          type="color"
-          className="settings-color-swatch"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label={`${label} color picker`}
-        />
-        <input
-          type="text"
-          className="settings-input settings-color-hex"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="#000000"
-        />
+      <div className="picker-wrap" ref={wrapRef}>
+        <button
+          ref={triggerRef}
+          type="button"
+          className="picker-trigger"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <span className="picker-swatch" style={{ background: value }} aria-hidden="true" />
+          <span className="picker-value">{value.toUpperCase()}</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        {open ? createPortal(
+          <div
+            className="picker-popover"
+            style={popStyle}
+            role="dialog"
+            aria-label={`${label} picker`}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <HsvArea value={value} onChange={onChange} />
+            <HueStrip value={value} onChange={onChange} />
+            <div className="picker-presets" role="listbox" aria-label="Preset colors">
+              {COLOR_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`picker-preset${value.toLowerCase() === c.toLowerCase() ? " is-active" : ""}`}
+                  style={{ background: c }}
+                  onClick={() => onChange(c)}
+                  aria-label={c}
+                  title={c}
+                />
+              ))}
+            </div>
+            <div className="picker-hex-row">
+              <span className="mono-label picker-hex-label">HEX</span>
+              <input
+                type="text"
+                className="picker-hex-input"
+                value={value}
+                onChange={(e) => onChange(normalise(e.target.value))}
+                placeholder="#000000"
+                spellCheck={false}
+                maxLength={7}
+              />
+            </div>
+          </div>,
+          document.body,
+        ) : null}
       </div>
     </div>
   );
@@ -453,7 +606,7 @@ function ImagePickerRow({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_BYTES) {
-      onError(`Image is too large — keep it under ${Math.round(MAX_IMAGE_BYTES / 1000)}KB.`);
+      onError(`Image is too large — keep it under ${(MAX_IMAGE_BYTES / 1_000_000).toFixed(1)} MB.`);
       e.target.value = "";
       return;
     }
@@ -575,5 +728,331 @@ function ConnectionChip({
       <span>{label}</span>
       <span className="arrow" aria-hidden="true">→</span>
     </button>
+  );
+}
+
+/* History tab — lists the user's saved plans (public.plans table), newest
+   first. Each row links to /plan/<id>. Fetched on mount + when the userId
+   changes; no live subscription (opening Settings again re-fetches). */
+type HistoryRow =
+  | { kind: "plan"; id: string; brief_name: string | null; created_at: string; count: number }
+  | { kind: "pack"; id: string; brief_name: string | null; created_at: string; count: number };
+
+function HistorySection({
+  userId,
+  onClose,
+  mode,
+}: {
+  userId: string | null;
+  onClose: () => void;
+  mode: "packs" | "plans";
+}) {
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [rows, setRows] = useState<HistoryRow[]>([]);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (!userId) {
+      setStatus("ready");
+      setRows([]);
+      return;
+    }
+    let cancelled = false;
+    setStatus("loading");
+    const fetcher =
+      mode === "packs"
+        ? listSavedPacks({ data: { userId } }).then(({ packs }) =>
+            packs.map((p): HistoryRow => ({
+              kind: "pack",
+              id: p.id,
+              brief_name: p.brief_name,
+              created_at: p.created_at,
+              count: p.imageCount,
+            })),
+          )
+        : listPlans({ data: { userId } }).then(({ plans }) =>
+            plans.map((p): HistoryRow => ({
+              kind: "plan",
+              id: p.id,
+              brief_name: p.brief_name,
+              created_at: p.created_at,
+              count: p.count,
+            })),
+          );
+    fetcher
+      .then((next) => {
+        if (cancelled) return;
+        setRows(next);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setErrorMsg(err instanceof Error ? err.message : "Couldn't load history.");
+        setStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, mode]);
+
+  if (!userId) {
+    return (
+      <section className="settings-section">
+        <p className="settings-hint">Sign in to see your saved plans.</p>
+      </section>
+    );
+  }
+  if (status === "loading") {
+    return (
+      <section className="settings-section">
+        <p className="settings-hint">Loading history…</p>
+      </section>
+    );
+  }
+  if (status === "error") {
+    return (
+      <section className="settings-section">
+        <p className="auth-error" role="alert">{errorMsg}</p>
+      </section>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <section className="settings-section">
+        <p className="settings-hint">
+          {mode === "packs" ? (
+            <>Nothing saved yet. Generate a pack, then hit <strong>Save pack</strong> on /pack.</>
+          ) : (
+            <>No publish plans yet. Generate a pack, then hit <strong>Plan publish</strong> on /pack.</>
+          )}
+        </p>
+      </section>
+    );
+  }
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <section className="settings-section">
+      <ul className="history-list">
+        {rows.map((row) => {
+          const isPack = row.kind === "pack";
+          const link = isPack ? (
+            <Link
+              to="/pack/saved/$id"
+              params={{ id: row.id }}
+              onClick={onClose}
+              className="history-row-link"
+            >
+              <RowInner row={row} isPack fmt={fmt} />
+            </Link>
+          ) : (
+            <Link
+              to="/plan/$id"
+              params={{ id: row.id }}
+              onClick={onClose}
+              className="history-row-link"
+            >
+              <RowInner row={row} isPack={false} fmt={fmt} />
+            </Link>
+          );
+          return (
+            <li key={`${row.kind}-${row.id}`} className="history-row">
+              {link}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="settings-hint mt-3">
+        Only you can open these links — plans are locked to the account that created them.
+      </p>
+    </section>
+  );
+}
+
+function RowInner({
+  row,
+  isPack,
+  fmt,
+}: {
+  row: { brief_name: string | null; count: number; created_at: string };
+  isPack: boolean;
+  fmt: (iso: string) => string;
+}) {
+  const label = isPack ? "Pack" : "Plan";
+  const unit = isPack ? "image" : "post";
+  return (
+    <>
+      <div className="history-row-main">
+        <span className="history-row-title">
+          {row.brief_name || `Untitled ${label.toLowerCase()}`}
+        </span>
+        <span className="history-row-meta">
+          <span className={`history-row-badge history-row-badge--${isPack ? "pack" : "plan"}`}>
+            {label}
+          </span>
+          {row.count} {unit}{row.count === 1 ? "" : "s"} · {fmt(row.created_at)}
+        </span>
+      </div>
+      <span className="history-row-arrow" aria-hidden="true">→</span>
+    </>
+  );
+}
+
+/* ---------- Custom HSV color picker ---------- */
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "").trim();
+  const n = h.length === 3
+    ? h.split("").map((c) => c + c).join("")
+    : h.padEnd(6, "0").slice(0, 6);
+  const r = parseInt(n.slice(0, 2), 16) || 0;
+  const g = parseInt(n.slice(2, 4), 16) || 0;
+  const b = parseInt(n.slice(4, 6), 16) || 0;
+  return [r, g, b];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const to = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+  const rr = r / 255, gg = g / 255, bb = b / 255;
+  const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === rr) h = ((gg - bb) / d) % 6;
+    else if (max === gg) h = (bb - rr) / d + 2;
+    else h = (rr - gg) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  const s = max === 0 ? 0 : d / max;
+  return [h, s, max];
+}
+
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)      [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else              [r, g, b] = [c, 0, x];
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+}
+
+function hexToHsv(hex: string): [number, number, number] {
+  return rgbToHsv(...hexToRgb(hex));
+}
+
+function useDrag(
+  onMove: (e: { clientX: number; clientY: number }) => void,
+  ref: React.RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let dragging = false;
+    const start = (e: PointerEvent) => {
+      dragging = true;
+      el.setPointerCapture(e.pointerId);
+      onMove(e);
+    };
+    const move = (e: PointerEvent) => {
+      if (!dragging) return;
+      onMove(e);
+    };
+    const end = (e: PointerEvent) => {
+      dragging = false;
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+    };
+    el.addEventListener("pointerdown", start);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+    return () => {
+      el.removeEventListener("pointerdown", start);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", end);
+      el.removeEventListener("pointercancel", end);
+    };
+  }, [onMove, ref]);
+}
+
+function HsvArea({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, s, v] = hexToHsv(value);
+  const areaRef = useRef<HTMLDivElement | null>(null);
+
+  useDrag((e) => {
+    const el = areaRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const ny = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const [r, g, b] = hsvToRgb(h, nx, 1 - ny);
+    onChange(rgbToHex(r, g, b));
+  }, areaRef);
+
+  const hueColor = `hsl(${h}, 100%, 50%)`;
+  return (
+    <div
+      ref={areaRef}
+      className="picker-sv"
+      style={{ background: hueColor }}
+      role="slider"
+      aria-label="Saturation and brightness"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(v * 100)}
+    >
+      <div className="picker-sv-white" />
+      <div className="picker-sv-black" />
+      <div
+        className="picker-sv-thumb"
+        style={{ left: `${s * 100}%`, top: `${(1 - v) * 100}%`, background: value }}
+      />
+    </div>
+  );
+}
+
+function HueStrip({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, s, v] = hexToHsv(value);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  useDrag((e) => {
+    const el = stripRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const newH = nx * 360;
+    const [r, g, b] = hsvToRgb(newH, s || 1, v || 1);
+    onChange(rgbToHex(r, g, b));
+  }, stripRef);
+  return (
+    <div
+      ref={stripRef}
+      className="picker-hue"
+      role="slider"
+      aria-label="Hue"
+      aria-valuemin={0}
+      aria-valuemax={360}
+      aria-valuenow={Math.round(h)}
+    >
+      <div className="picker-hue-thumb" style={{ left: `${(h / 360) * 100}%` }} />
+    </div>
   );
 }
