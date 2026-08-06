@@ -11,7 +11,10 @@ import { type ReactNode } from "react";
 
 import { PackProvider } from "@/context/PackContext";
 import { BrandProvider } from "@/context/BrandContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { SettingsProvider } from "@/context/SettingsContext";
 import { IntroOverlay } from "@/components/IntroOverlay";
+import { ScrollBar } from "@/components/ScrollBar";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -122,15 +125,22 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* The brief and the pack it generates. Above Outlet so a future brief
-          form on one route and the pack on another share one source. */}
-      <PackProvider>
-        <BrandProvider>
-          <IntroOverlay />
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-        </BrandProvider>
-      </PackProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          {/* Fixed rainbow accent along the top edge of the viewport — its
+              width tracks scroll progress, replacing the global scrollbar. */}
+          <ScrollBar />
+          {/* The brief and the pack it generates. Above Outlet so a future brief
+              form on one route and the pack on another share one source. */}
+          <PackProvider>
+            <BrandProvider>
+              <IntroOverlay />
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </BrandProvider>
+          </PackProvider>
+        </SettingsProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

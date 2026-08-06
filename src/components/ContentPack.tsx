@@ -6,6 +6,7 @@ import { CursorBloom } from "@/components/CursorBloom";
 import { Logo, LogoMark } from "@/components/Logo";
 import { usePack } from "@/context/PackContext";
 import { PackActions } from "@/components/PackActions";
+import { AuthNav } from "@/components/AuthNav";
 import { GOAL_LABEL, PLATFORM_LABEL, ideaByKind, type Caption } from "@/lib/pack";
 
 const A = {
@@ -546,7 +547,7 @@ export function ContentPack() {
       <InkFilm />
       <CursorBloom />
 
-      <header className="fixed top-0 right-0 left-0 z-20 flex items-center justify-between px-[clamp(1.25rem,5vw,5rem)] py-5">
+      <header className="fixed top-0 right-0 left-0 z-20 flex items-center justify-between px-[clamp(1.25rem,5vw,5rem)] py-5 select-none">
         <button
           type="button"
           onClick={() => scrollToSection("s01")}
@@ -556,27 +557,11 @@ export function ContentPack() {
           <Logo name={brief.name} className="header-logo" />
         </button>
         <nav className="flex items-center gap-6 font-mono text-[0.68rem] tracking-[0.16em] uppercase">
-          {(
-            [
-              ["Proof", "s03"],
-              ["Receipts", "s06"],
-              ["Make it yours", "s09"],
-            ] as const
-          ).map(([label, id]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => scrollToSection(id)}
-              className="nav-link cursor-pointer"
-            >
-              <span className="mr-2 opacity-50">·</span>
-              {label}
-            </button>
-          ))}
+          <AuthNav />
         </nav>
       </header>
 
-      <main className="plane">
+      <main className="plane select-none">
         {/* ============ 01 COVER ============ */}
         <section
           id="s01"
@@ -1208,7 +1193,7 @@ export function ContentPack() {
       </main>
 
       <footer
-        className="relative z-[2] flex flex-wrap items-baseline justify-between gap-4 px-[clamp(1.25rem,5vw,5rem)] py-9 font-mono text-[0.62rem] tracking-[0.16em] text-[rgba(245,243,239,0.62)] uppercase"
+        className="relative z-[2] flex flex-wrap items-baseline justify-between gap-4 px-[clamp(1.25rem,5vw,5rem)] py-9 font-mono text-[0.62rem] tracking-[0.16em] text-[rgba(245,243,239,0.62)] uppercase select-none"
         style={{ background: "linear-gradient(to bottom, transparent, rgba(6,7,8,0.92))" }}
       >
         <Logo name={brief.name} size={20} wordmarkClassName="display text-base text-[#f5f3ef]" />

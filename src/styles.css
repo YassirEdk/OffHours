@@ -180,41 +180,60 @@ body {
 }
 
 /* --- scrollbars ---
-   The OS default lands as a white gutter with stepper arrows on Windows, which
-   is the brightest thing on a page built to be almost entirely black. Same
-   hairline vocabulary as the rest of the chrome: no track, no buttons, a thumb
-   that only resolves on hover. Firefox takes the standard properties; Chrome
-   and Safari need the pseudo-elements, and styling ::-webkit-scrollbar at all
-   is what drops the arrows. */
+   Hidden globally. Scrolling still works via wheel / trackpad / keyboard —
+   the visible gutter is replaced by a chameleon accent strip fixed at the
+   top of the viewport (see .site-chameleon-bar below). */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(245, 243, 239, 0.22) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background-color: rgba(245, 243, 239, 0.2);
-  /* Transparent border + background-clip insets the thumb without shrinking the
-     hit area — a 4px-wide bar is nearly impossible to grab. */
-  border: 3px solid transparent;
-  background-clip: content-box;
-  transition: background-color 0.3s cubic-bezier(0.6, 0, 0.2, 1);
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(245, 243, 239, 0.42);
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-/* Kills the stepper arrows in the browsers that still draw them. */
+::-webkit-scrollbar,
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner,
 ::-webkit-scrollbar-button {
-  display: none;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Chameleon top bar — a fixed rainbow strip along the top edge of the
+   viewport, cycling the same colours the logo wordmark uses. Sits above
+   every layer, and out of pointer events so it never blocks a click. */
+.site-chameleon-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 9998;
+  opacity: 0.35;
+  background-image: linear-gradient(
+    90deg,
+    #d8ff3e 0%,
+    #3ef0d8 20%,
+    #4ea8ff 40%,
+    #a06bff 60%,
+    #ff6bd2 80%,
+    #d8ff3e 100%
+  );
+  background-size: 300% 100%;
+  background-position: 0% 50%;
+  animation: logo-word-chameleon 6s linear infinite;
+  pointer-events: none;
+  /* Grows from the left as the page scrolls down; shrinks going back up.
+     JS sets scaleX on the element; smoothing here keeps small deltas
+     from looking snappy on trackpads. */
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.12s linear;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-chameleon-bar { animation: none; }
 }
 
 /* --- background film --- */
@@ -439,6 +458,357 @@ a:focus-visible > .logo .logo-word {
     animation: none;
   }
 }
+/* Sign up — always sits as a filled rounded rectangle (off-white on dark
+   text). On hover the fill slightly brightens and the button lifts a hair
+   so it still reads as interactive. */
+.signup-hover-circle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55em 1.15em;
+  border-radius: 0.55rem;
+  background: #f5f3ef;
+  color: #0a0b0c;
+  cursor: pointer;
+  transition: background 0.24s ease, transform 0.24s ease, box-shadow 0.24s ease;
+}
+.signup-hover-circle:hover,
+.signup-hover-circle:focus-visible {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.55);
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .signup-hover-circle { transition: none; }
+  .signup-hover-circle:hover,
+  .signup-hover-circle:focus-visible { transform: none; }
+}
+
+/* auth dialog — dark panel with hairline chrome, Archivo display title, mono
+   labels, hairline inputs with an underline that expands on focus. The panel
+   rises + scales in behind an ink-lit backdrop; overlay uses a soft gradient
+   instead of a flat black so the site still reads underneath. */
+/* While the auth dialog is open, freeze the page scroll and hide its
+   scrollbar so the site's grey bar behind the modal disappears. Uses :has
+   on the body so no JS is needed — Radix stamps [data-state="open"] on the
+   overlay/content when the dialog is open. */
+body:has(.auth-overlay[data-state="open"]) {
+  overflow: hidden !important;
+  scrollbar-gutter: auto;
+}
+body:has(.auth-overlay[data-state="open"])::-webkit-scrollbar { display: none; }
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background:
+    radial-gradient(1000px 700px at 50% 50%, rgba(10, 11, 12, 0.55) 0%, rgba(6, 7, 8, 0.94) 70%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.auth-overlay[data-state="open"] { animation: auth-overlay-in 0.42s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.auth-overlay[data-state="closed"] { animation: auth-overlay-out 0.36s cubic-bezier(0.55, 0, 0.7, 0.2) forwards; }
+@keyframes auth-overlay-in  { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(10px); } }
+@keyframes auth-overlay-out {
+  0%   { opacity: 1; backdrop-filter: blur(10px); }
+  100% { opacity: 0; backdrop-filter: blur(0px); }
+}
+
+.auth-panel {
+  --accent: #d8ff3e;
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 61;
+  width: min(92vw, 460px);
+  max-height: min(92vh, 720px);
+  /* Panel itself never shows a scrollbar; if content is taller than the
+     max-height a nested wrapper handles the scroll (see .auth-panel > .auth-scroll). */
+  overflow: hidden;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  background:
+    linear-gradient(180deg, rgba(18, 20, 22, 0.94), rgba(10, 11, 12, 0.96)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  box-shadow:
+    0 40px 80px -20px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(245, 243, 239, 0.03) inset,
+    0 0 60px -20px color-mix(in srgb, var(--accent) 40%, transparent);
+  color: #f5f3ef;
+  outline: none;
+  /* Firefox — hide the scrollbar entirely */
+  scrollbar-width: none;
+  /* Legacy IE/Edge */
+  -ms-overflow-style: none;
+}
+/* WebKit / Blink — every possible scrollbar part reduced to zero. Chrome
+   sometimes ignores `display: none` on the bar itself, so force width 0
+   and transparent on all parts too. */
+.auth-panel::-webkit-scrollbar,
+.auth-panel::-webkit-scrollbar-track,
+.auth-panel::-webkit-scrollbar-thumb,
+.auth-panel::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Chameleon top bar — a bright rainbow strip on the top edge of the panel,
+   cycling the same rainbow the logo wordmark uses. Sits above content and
+   inside the panel border so it reads as the panel's accent stripe. */
+.auth-panel::before { content: none; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-panel::before { animation: none; }
+}
+.auth-panel[data-state="open"]   { animation: auth-panel-in 0.55s cubic-bezier(0.2, 0.75, 0.2, 1); }
+.auth-panel[data-state="closed"] { animation: auth-panel-out 0.36s cubic-bezier(0.55, 0, 0.7, 0.2) forwards; }
+@keyframes auth-panel-in {
+  0%   { opacity: 0; transform: translate(-50%, -46%) scale(0.94); filter: blur(6px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+}
+/* Close: brief settle down (10%), then drop away — scale collapses, panel
+   sinks and tilts a hair, blur ramps up, opacity dies last so the shape
+   is still readable as it falls. */
+@keyframes auth-panel-out {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1)     rotate(0deg); filter: blur(0); }
+  20%  { opacity: 1; transform: translate(-50%, -48%) scale(1.015) rotate(0deg); filter: blur(0); }
+  100% { opacity: 0; transform: translate(-50%, -38%) scale(0.86)  rotate(-2deg); filter: blur(8px); }
+}
+
+.auth-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  width: 32px;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  color: rgba(245, 243, 239, 0.7);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.25s ease;
+}
+.auth-close:hover,
+.auth-close:focus-visible {
+  color: #f5f3ef;
+  border-color: rgba(245, 243, 239, 0.5);
+  transform: rotate(90deg);
+  outline: none;
+}
+
+.auth-head { text-align: left; }
+.auth-title {
+  font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+  line-height: 0.94;
+  /* Per-character mask + rise; height clips descenders that peek during the
+     lift. Setting overflow on the title itself is safe here because the
+     wrapper never wraps content that needs to overflow. */
+  overflow: hidden;
+  padding-bottom: 0.14em;
+}
+.auth-accent { color: var(--accent); }
+
+/* Character-level rise-in for the title. Each char animates on its own row
+   from y=112% (below its own line) to 0, staggered by --i. Whitespace stays
+   a space (not a masked char) so word boundaries breathe. */
+.auth-split {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+.auth-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+.auth-char {
+  display: inline-block;
+  transform: translate3d(0, 112%, 0) rotate(4deg);
+  opacity: 0;
+  animation: auth-char-in 0.72s cubic-bezier(0.2, 0.75, 0.2, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 22ms + 60ms);
+  will-change: transform, opacity;
+}
+.auth-char--accent { color: var(--accent); }
+@keyframes auth-char-in {
+  0%   { transform: translate3d(0, 112%, 0) rotate(4deg); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg);    opacity: 1; }
+}
+
+.auth-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin-top: 1.4rem;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  overflow: hidden;
+}
+/* accent pill glides between the two tabs when the mode changes */
+.auth-tab-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  background: var(--accent);
+  transform: translateX(calc(var(--tab, 0) * 100%));
+  transition: transform 0.42s cubic-bezier(0.6, 0.02, 0.18, 1.02);
+  z-index: 0;
+}
+.auth-tab {
+  position: relative;
+  z-index: 1;
+  padding: 0.72rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 239, 0.55);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.28s ease;
+}
+.auth-tab + .auth-tab { border-left: 1px solid rgba(245, 243, 239, 0.14); }
+.auth-tab:hover { color: #f5f3ef; }
+.auth-tab.is-active { color: #0a0b0c; }
+
+/* Directional swap — head + form slide horizontally in the direction of
+   travel, cross a soft blur, and settle. Distance and duration are large
+   enough that the motion is unmistakably visible, not a subliminal fade. */
+.auth-swap {
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+  will-change: opacity, transform, filter;
+}
+.auth-swap--forward { animation-name: auth-swap-in-fwd; }
+.auth-swap--back    { animation-name: auth-swap-in-back; }
+@keyframes auth-swap-in-fwd {
+  0%   { opacity: 0; transform: translate3d(60px, 0, 0) scale(0.98); filter: blur(6px); }
+  50%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1);       filter: blur(0); }
+}
+@keyframes auth-swap-in-back {
+  0%   { opacity: 0; transform: translate3d(-60px, 0, 0) scale(0.98); filter: blur(6px); }
+  50%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1);        filter: blur(0); }
+}
+
+.auth-form-wrap { position: relative; padding-top: 0.6rem; }
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1.4rem;
+}
+
+.auth-field { display: flex; flex-direction: column; gap: 0.4rem; }
+.auth-input {
+  width: 100%;
+  padding: 0.62rem 0;
+  background: transparent;
+  color: #f5f3ef;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  border: 0;
+  border-bottom: 1px solid #6b6f76;
+  outline: none;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease;
+}
+.auth-input::placeholder { color: rgba(245, 243, 239, 0.35); }
+.auth-input:hover { border-bottom-color: #9a9fa7; }
+.auth-input:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 0 var(--accent);
+}
+.auth-input:-webkit-autofill {
+  -webkit-text-fill-color: #f5f3ef;
+  -webkit-box-shadow: 0 0 0 1000px #0f1113 inset;
+  caret-color: #f5f3ef;
+}
+.auth-hint {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 239, 0.42);
+}
+
+.auth-error {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  color: #ff8577;
+}
+.auth-notice {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  color: #b3f5a6;
+}
+
+.auth-submit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+  padding: 0.95rem 1.4rem;
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 125, "wght" 900;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #0a0b0c;
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  isolation: isolate;
+  overflow: hidden;
+  transition: color 0.28s ease, transform 0.2s ease;
+}
+.auth-submit .fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 0.36s cubic-bezier(0.5, 0, 0.2, 1);
+  z-index: -1;
+}
+.auth-submit:hover .fill,
+.auth-submit:focus-visible .fill { transform: scaleX(1.04); }
+.auth-submit:hover .arrow,
+.auth-submit:focus-visible .arrow { transform: translateX(4px); }
+.auth-submit .arrow { transition: transform 0.28s ease; }
+.auth-submit:active { transform: translateY(1px); }
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-overlay[data-state],
+  .auth-panel[data-state],
+  .auth-swap,
+  .auth-char { animation: none !important; }
+  .auth-char { transform: none; opacity: 1; }
+  .auth-tab-indicator,
+  .auth-submit .fill,
+  .auth-close { transition: none; }
+}
+
 /* intro overlay — big centered logo, then glides to its header spot */
 .intro-overlay {
   position: fixed;
@@ -475,26 +845,18 @@ a:focus-visible > .logo .logo-word {
   transform: translate(0, 0) scale(1);
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent, #d8ff3e) 30%, transparent));
 }
-/* during the intro, spin the chameleon 3x faster so the color story reads
-   even in the short window before the logo starts moving. */
+/* intro: mark keeps its accent color (same as header), wordmark reads white. */
 .intro-logo .logo-mark {
-  animation: logo-chameleon 2.4s ease-in-out infinite !important;
+  animation: none !important;
+  color: var(--accent, #d8ff3e);
 }
 .intro-logo .logo-word {
-  background-image: linear-gradient(
-    90deg,
-    #d8ff3e 0%,
-    #3ef0d8 25%,
-    #a06bff 55%,
-    #ff6bd2 80%,
-    #d8ff3e 100%
-  );
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  animation: logo-word-chameleon 2.4s linear infinite;
+  background-image: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  animation: none;
 }
 /* while the intro plays: lock scroll, hide the real header logo (its layout
    slot is still there — measurement is fine), and hide entrance-animated
@@ -503,7 +865,8 @@ body.intro-active {
   overflow: hidden;
   overscroll-behavior: none;
 }
-body.intro-active .header-logo {
+body.intro-active .header-logo,
+body.intro-flying .header-logo {
   visibility: hidden;
 }
 body.intro-active [data-split],
@@ -521,13 +884,14 @@ body.intro-post footer {
   animation: intro-reveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 @keyframes intro-reveal {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .intro-overlay { display: none; }
   body.intro-active { overflow: auto; overscroll-behavior: auto; }
-  body.intro-active .header-logo { visibility: visible; }
+  body.intro-active .header-logo,
+  body.intro-flying .header-logo { visibility: visible; }
   body.intro-active [data-split],
   body.intro-active [data-fade],
   body.intro-active [data-words],
@@ -538,24 +902,29 @@ body.intro-post footer {
 }
 
 .logo-mark {
-  animation: logo-chameleon 8s ease-in-out infinite;
+  color: var(--accent, #d8ff3e);
   transition: filter 0.4s ease;
-  will-change: filter;
 }
 .logo-mark .logo-hand {
+  stroke: #ffffff;
   transform-origin: 12px 12px;
-  transition: transform 0.9s cubic-bezier(0.6, 0, 0.2, 1);
-  animation: logo-hand-sway 4s ease-in-out infinite;
+  animation: logo-hand-spin 15s linear infinite;
+  will-change: transform;
 }
+@keyframes logo-hand-spin {
+  to { transform: rotate(360deg); }
+}
+/* Chameleon keeps cycling — hover/click/focus only adds the halo glow. */
 .logo:hover .logo-mark,
-a:hover > .logo-mark {
-  filter: hue-rotate(0deg) drop-shadow(0 0 8px color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent));
-  animation-play-state: paused;
-}
-.logo:hover .logo-mark .logo-hand,
-a:hover > .logo-mark .logo-hand {
-  transform: rotate(360deg);
-  animation: none;
+.logo:active .logo-mark,
+.logo:focus-visible .logo-mark,
+a:hover > .logo-mark,
+a:active > .logo-mark,
+a:focus-visible > .logo-mark,
+button:hover > .logo .logo-mark,
+button:active > .logo .logo-mark,
+button:focus-visible > .logo .logo-mark {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent));
 }
 @keyframes logo-chameleon {
   0%   { filter: hue-rotate(0deg)   drop-shadow(0 0 0 transparent); }
@@ -853,6 +1222,473 @@ a:hover > .logo-mark .logo-hand {
   transform-origin: left center;
 }
 
+/* settings dialog — brand/profile/style panel. Reuses the auth-panel look
+   with a tabbed body and a persistent header/footer. */
+.settings-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 3rem);
+}
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background:
+    radial-gradient(1000px 700px at 50% 50%, rgba(10, 11, 12, 0.55) 0%, rgba(6, 7, 8, 0.94) 70%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: settings-backdrop-in 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes settings-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+.settings-panel {
+  --accent: #d8ff3e;
+  position: relative;
+  z-index: 1;
+  width: min(94vw, 560px);
+  max-height: min(92vh, 780px);
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(18, 20, 22, 0.94), rgba(10, 11, 12, 0.96)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  color: #f5f3ef;
+  box-shadow:
+    0 40px 80px -20px rgba(0, 0, 0, 0.7),
+    0 0 60px -20px color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: settings-panel-in 0.5s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+@keyframes settings-panel-in {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.96); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0); }
+}
+.settings-panel--closing {
+  animation: settings-panel-out 0.36s cubic-bezier(0.55, 0, 0.7, 0.2) forwards !important;
+}
+.settings-scrim--closing .settings-backdrop {
+  animation: settings-backdrop-out 0.36s cubic-bezier(0.55, 0, 0.7, 0.2) forwards !important;
+}
+@keyframes settings-panel-out {
+  0%   { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-10px) scale(0.94); filter: blur(6px); }
+}
+@keyframes settings-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+
+.settings-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.25rem, 3vw, 1.75rem) 0;
+}
+.settings-title { font-size: clamp(1.4rem, 2.6vw, 1.8rem); line-height: 1; }
+.settings-close {
+  height: 32px;
+  width: 32px;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  background: transparent;
+  color: rgba(245, 243, 239, 0.7);
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.25s ease;
+  flex: 0 0 auto;
+}
+.settings-close:hover, .settings-close:focus-visible {
+  color: #f5f3ef;
+  border-color: rgba(245, 243, 239, 0.5);
+  transform: rotate(90deg);
+  outline: none;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 0;
+  margin: 1rem clamp(1.25rem, 3vw, 1.75rem) 0;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+}
+.settings-tab {
+  flex: 1;
+  padding: 0.55rem 0.5rem;
+  background: transparent;
+  border: 0;
+  color: rgba(245, 243, 239, 0.7);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.settings-tab + .settings-tab { border-left: 1px solid rgba(245, 243, 239, 0.14); }
+.settings-tab:hover { color: #f5f3ef; }
+.settings-tab.is-active {
+  color: #0a0b0c;
+  background: var(--accent);
+}
+
+.settings-body {
+  overflow-y: auto;
+  padding: 1.25rem clamp(1.25rem, 3vw, 1.75rem);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 243, 239, 0.2) transparent;
+}
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.settings-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 480px) {
+  .settings-grid-2 { grid-template-columns: 1fr; }
+}
+.settings-hint {
+  font-size: 0.75rem;
+  color: rgba(245, 243, 239, 0.55);
+  line-height: 1.4;
+}
+.settings-input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(245, 243, 239, 0.2);
+  color: #f5f3ef;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+.settings-input:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+.settings-textarea {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  background: rgba(245, 243, 239, 0.03);
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  color: #f5f3ef;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.settings-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(245, 243, 239, 0.05);
+}
+.settings-chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.settings-color-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+.settings-color-swatch {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(245, 243, 239, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.settings-color-swatch::-webkit-color-swatch { border: 0; border-radius: 4px; }
+.settings-color-swatch::-webkit-color-swatch-wrapper { padding: 2px; }
+.settings-color-hex { flex: 1; }
+
+.settings-image-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.settings-image-preview {
+  width: 92px;
+  height: 92px;
+  flex: 0 0 auto;
+  border: 1px dashed rgba(245, 243, 239, 0.22);
+  background: rgba(245, 243, 239, 0.03);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.settings-image-preview--round { border-radius: 9999px; }
+.settings-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+.settings-image-empty {
+  color: rgba(245, 243, 239, 0.35);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+}
+.settings-image-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+/* Instagram connect — brand gradient with a subtle hover lift. Not a real
+   OAuth call yet; wired to a "coming soon" notice for now. */
+.settings-instagram-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  align-self: flex-start;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: linear-gradient(135deg, #feda75 0%, #fa7e1e 20%, #d62976 50%, #962fbf 75%, #4f5bd5 100%);
+  box-shadow: 0 8px 20px -10px rgba(214, 41, 118, 0.6);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.2s ease;
+}
+.settings-instagram-btn:hover,
+.settings-instagram-btn:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.05) saturate(1.1);
+  box-shadow: 0 14px 28px -12px rgba(214, 41, 118, 0.7);
+  outline: none;
+}
+.settings-instagram-btn:active { transform: translateY(0); }
+.settings-instagram-btn .arrow { transition: transform 0.25s ease; }
+.settings-instagram-btn:hover .arrow,
+.settings-instagram-btn:focus-visible .arrow { transform: translateX(3px); }
+.settings-instagram-icon { flex: 0 0 auto; }
+
+.settings-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem clamp(1.25rem, 3vw, 1.75rem);
+  border-top: 1px solid rgba(245, 243, 239, 0.08);
+  background: rgba(6, 7, 8, 0.5);
+}
+.settings-foot-right { display: flex; gap: 0.6rem; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-backdrop,
+  .settings-panel,
+  .settings-panel--closing { animation: none !important; transform: none !important; filter: none !important; }
+}
+
+/* auth nav — signed-in header lockup: circular initial avatar, name in the
+   header display face, and a red-accent "Sign out" button that shows an icon
+   in its resting state and a full label on hover/focus. */
+.auth-nav-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #f5f3ef;
+}
+.auth-nav-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--accent, #d8ff3e) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent);
+  color: #f5f3ef;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex: 0 0 auto;
+}
+.auth-nav-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  height: 30px;
+  width: 30px;
+  border-radius: 9999px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.auth-nav-avatar-btn:hover,
+.auth-nav-avatar-btn:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent);
+  outline: none;
+}
+.auth-nav-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--accent, #d8ff3e) 55%, transparent);
+}
+.auth-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  width: 30px;
+  padding: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 243, 239, 0.18);
+  background: transparent;
+  color: rgba(245, 243, 239, 0.85);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.25s ease, background-color 0.2s ease;
+}
+.auth-icon-btn:hover,
+.auth-icon-btn:focus-visible {
+  color: #f5f3ef;
+  border-color: rgba(245, 243, 239, 0.55);
+  background: rgba(245, 243, 239, 0.04);
+  transform: rotate(45deg);
+  outline: none;
+}
+.auth-signout {
+  --sig-red: #ff5c5c;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 30px;
+  padding: 0 0.75rem;
+  line-height: 1;
+  border: 1px solid color-mix(in srgb, var(--sig-red) 55%, transparent);
+  background: color-mix(in srgb, var(--sig-red) 12%, transparent);
+  color: var(--sig-red);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.25s ease;
+  will-change: transform, box-shadow;
+}
+.auth-signout:hover,
+.auth-signout:focus-visible {
+  background: var(--sig-red);
+  color: #0a0b0c;
+  border-color: var(--sig-red);
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--sig-red) 60%, transparent);
+}
+.auth-signout:active { transform: translateY(0); }
+.auth-signout-icon {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.auth-signout:hover .auth-signout-icon,
+.auth-signout:focus-visible .auth-signout-icon {
+  transform: translateX(3px);
+}
+@media (max-width: 520px) {
+  .auth-signout-label { display: none; }
+  .auth-signout { padding: 0 0.55rem; }
+}
+
+/* auth gate — small confirm-style prompt shown when a guest tries to write a
+   brief. Lightweight sibling of .auth-panel, sized to a short message and two
+   actions, animated to match the brief panel's open/close feel. */
+.gate-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 3rem);
+}
+.gate-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background:
+    radial-gradient(1000px 700px at 50% 50%, rgba(10, 11, 12, 0.55) 0%, rgba(6, 7, 8, 0.94) 70%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  animation: gate-backdrop-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes gate-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+.gate-panel {
+  --accent: #d8ff3e;
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 440px);
+  padding: clamp(1.5rem, 3vw, 2rem);
+  background:
+    linear-gradient(180deg, rgba(18, 20, 22, 0.94), rgba(10, 11, 12, 0.96)),
+    #0a0b0c;
+  border: 1px solid rgba(245, 243, 239, 0.14);
+  color: #f5f3ef;
+  box-shadow:
+    0 40px 80px -20px rgba(0, 0, 0, 0.7),
+    0 0 60px -20px color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: gate-panel-in 0.42s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+@keyframes gate-panel-in {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.96); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0); }
+}
+.gate-title {
+  font-size: clamp(1.3rem, 2.6vw, 1.65rem);
+  line-height: 1;
+}
+.gate-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.gate-panel--closing {
+  animation: gate-panel-out 0.32s cubic-bezier(0.55, 0, 0.7, 0.2) forwards !important;
+}
+.gate-scrim--closing .gate-backdrop {
+  animation: gate-backdrop-out 0.32s cubic-bezier(0.55, 0, 0.7, 0.2) forwards !important;
+}
+@keyframes gate-panel-out {
+  0%   { opacity: 1; transform: translateY(0)   scale(1);    filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-8px) scale(0.94); filter: blur(6px); }
+}
+@keyframes gate-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .gate-backdrop,
+  .gate-panel,
+  .gate-panel--closing { animation: none !important; transform: none !important; filter: none !important; }
+}
+
 /* brief panel — the app's one piece of chrome, kept in the page's own
    vocabulary: hairline rules, monospace labels, no rounded card look. */
 .brief-scrim {
@@ -862,29 +1698,156 @@ a:hover > .logo-mark .logo-hand {
   display: grid;
   place-items: center;
   padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 3rem);
+  /* 3D stage — perspective on the container so the panel's rotateX reads
+     as depth instead of a squash. */
+  perspective: 1400px;
+  perspective-origin: 50% 40%;
 }
+/* Backdrop — clean fade, blur eases in with the same curve as the panel so
+   the two feel like one continuous motion instead of separate reveals. */
 .brief-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(6, 7, 8, 0.86);
-  backdrop-filter: blur(6px);
+  background: rgba(6, 7, 8, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
+  animation: brief-backdrop-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity;
 }
+@keyframes brief-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Panel — smooth 3D unfold from the top. One curve (0.22, 1, 0.36, 1) — a
+   pure ease-out, no overshoot bounce — so the motion is one continuous
+   glide from tilted-back to flat. Blur/opacity ride the same timeline so
+   there are no piecewise "phases" to see. */
 .brief-panel {
   position: relative;
-  /* The panel renders inside the centred cover section, so it inherits that
-     alignment — a form with centred field labels reads as a poster, not a form. */
   text-align: left;
   width: min(100%, 940px);
   max-height: 100%;
   overflow-y: auto;
-  /* Held as a variable because the sticky head and foot have to cancel it out
-     to sit flush against the panel edges while scrolling. */
   --pad: clamp(1.25rem, 3vw, 2.25rem);
   padding: var(--pad);
   background: #0a0b0c;
   border: 1px solid rgba(245, 243, 239, 0.16);
   --accent: #d8ff3e;
+  transform-origin: 50% 0%;
+  animation: brief-panel-flip 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow:
+    0 40px 80px -20px rgba(0, 0, 0, 0.7),
+    0 0 60px -20px color-mix(in srgb, var(--accent) 30%, transparent);
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
+}
+@keyframes brief-panel-flip {
+  from {
+    opacity: 0;
+    transform: perspective(1600px) rotateX(-42deg) translateY(-20px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1600px) rotateX(0deg) translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Ink-bloom — one soft acid halo that expands + fades from the panel centre.
+   No rim spin, no conic gradient churn — just one gentle bloom so the arrival
+   moment reads without competing motion. */
+.brief-scrim::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60vmin;
+  height: 60vmin;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, #d8ff3e 45%, transparent) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 1;
+  filter: blur(24px);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.4);
+  animation: brief-bloom 1.3s 0.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, transform;
+}
+@keyframes brief-bloom {
+  from { opacity: 0.6; transform: translate(-50%, -50%) scale(0.4); }
+  to   { opacity: 0;   transform: translate(-50%, -50%) scale(1.4); }
+}
+
+/* Content lift — head, grid and foot ride a single shared curve with tight
+   sequential delays. Small distance, no blur, so nothing has to "un-blur"
+   at the end — that's what made the last version feel step-by-step. */
+.brief-head { animation: brief-fade-up 0.6s 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.brief-grid,
+.brief-proof { animation: brief-fade-up 0.65s 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.brief-foot { animation: brief-fade-up 0.6s 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes brief-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Field cascade — tighter 40ms interval and a smaller travel, so it reads
+   as one flowing sweep instead of eight discrete pops. */
+.brief-field {
+  animation: brief-field-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+.brief-field:nth-child(1) { animation-delay: 0.5s; }
+.brief-field:nth-child(2) { animation-delay: 0.54s; }
+.brief-field:nth-child(3) { animation-delay: 0.58s; }
+.brief-field:nth-child(4) { animation-delay: 0.62s; }
+.brief-field:nth-child(5) { animation-delay: 0.66s; }
+.brief-field:nth-child(6) { animation-delay: 0.70s; }
+.brief-field:nth-child(7) { animation-delay: 0.74s; }
+.brief-field:nth-child(8) { animation-delay: 0.78s; }
+@keyframes brief-field-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Close: panel folds back the way it came in — a shorter, faster reverse of
+   the flip. Backdrop dims out on the same clock. Field/head/foot child
+   animations are cancelled so they don't try to "enter" again mid-exit. */
+.brief-panel--closing {
+  animation: brief-panel-fold-out 0.38s cubic-bezier(0.55, 0, 0.7, 0.2) forwards !important;
+}
+.brief-panel--closing .brief-head,
+.brief-panel--closing .brief-grid,
+.brief-panel--closing .brief-proof,
+.brief-panel--closing .brief-foot,
+.brief-panel--closing .brief-field {
+  animation: none !important;
+}
+.brief-scrim--closing .brief-backdrop {
+  animation: brief-backdrop-out 0.38s cubic-bezier(0.55, 0, 0.7, 0.2) forwards !important;
+}
+.brief-scrim--closing::before { animation: none !important; opacity: 0 !important; }
+@keyframes brief-panel-fold-out {
+  0%   { opacity: 1; transform: perspective(1600px) rotateX(0deg)  translateY(0)     scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: perspective(1600px) rotateX(-38deg) translateY(-24px) scale(0.94); filter: blur(6px); }
+}
+@keyframes brief-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brief-backdrop,
+  .brief-panel,
+  .brief-scrim::before,
+  .brief-head,
+  .brief-grid,
+  .brief-proof,
+  .brief-foot,
+  .brief-field { animation: none !important; transform: none !important; }
+  .brief-panel--closing { animation: brief-backdrop-out 0.2s ease forwards !important; }
 }
 
 /* Head and foot stay put while the form scrolls under them — this panel is

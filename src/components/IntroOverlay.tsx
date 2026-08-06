@@ -56,6 +56,10 @@ export function IntroOverlay({ name = "Offhours" }: { name?: string }) {
 
     const onResize = () => measure();
     window.addEventListener("resize", onResize);
+    /* Fonts landing after first paint shift the header logo by a pixel or two;
+       re-measure once they're ready so the fly destination matches where the
+       real header logo will actually sit. */
+    document.fonts?.ready.then(() => measure()).catch(() => {});
     return () => {
       window.removeEventListener("resize", onResize);
       document.body.classList.remove("intro-active");
@@ -65,21 +69,37 @@ export function IntroOverlay({ name = "Offhours" }: { name?: string }) {
 
   useEffect(() => {
     if (!ready) return;
-    const flyTimer = window.setTimeout(() => setPhase("fly"), 1150);
-    const doneTimer = window.setTimeout(() => {
-      setPhase("gone");
-      /* Release the intro-active class FIRST so entrance elements return to
-         their natural opacity:1 in the DOM. Then dispatch intro:done — GSAP's
-         `.from({opacity:0})` will now read the natural end value correctly
-         and animate 0→1. Both are synchronous, so no paint happens in between. */
+    /* Re-measure right before the fly so the landing coords reflect current
+       layout, not the initial-paint layout — avoids a small vertical jump
+       when the overlay unmounts and the real header logo appears. */
+    const flyTimer = window.setTimeout(() => {
+      measure();
+      setPhase("fly");
+    }, 1150);
+    /* Reveal text while the logo is still mid-flight: release intro-active and
+       fire intro:done ~800ms into the 1700ms fly so GSAP entrance animations
+       overlap with the logo settling — no dead pause after it lands. */
+    const revealTimer = window.setTimeout(() => {
+      /* Hand off from intro-active to intro-flying: text may reveal now, but
+         the header logo stays hidden until the flying copy finishes landing
+         (otherwise both are on screen at once). */
       document.body.classList.remove("intro-active");
+      document.body.classList.add("intro-flying");
       document.body.classList.add("intro-post");
       window.dispatchEvent(new Event("intro:done"));
       window.setTimeout(() => document.body.classList.remove("intro-post"), 700);
+    }, 1950);
+    /* Overlay stays mounted until the fly transition finishes so the logo
+       completes its trip visually, then unmounts and un-hides the header logo. */
+    const doneTimer = window.setTimeout(() => {
+      setPhase("gone");
+      document.body.classList.remove("intro-flying");
     }, 2950);
     return () => {
       window.clearTimeout(flyTimer);
+      window.clearTimeout(revealTimer);
       window.clearTimeout(doneTimer);
+      document.body.classList.remove("intro-flying");
     };
   }, [ready]);
 

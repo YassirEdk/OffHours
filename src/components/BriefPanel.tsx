@@ -30,10 +30,16 @@ const EMPTY_BRIEF: Brief = {
   proof: { task: "", before: "", cost: "", who: "", client: "", took: "" },
 };
 
+const CLOSE_MS = 380;
+
 export function BriefPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { brief: current, isExample, setBrief } = usePackContext();
   const navigate = useNavigate();
   const [draft, setDraft] = useState<Brief>(EMPTY_BRIEF);
+  /* Stay mounted during the close animation. `open` flips false immediately,
+     `mounted` waits CLOSE_MS so the panel can play its exit before unmount. */
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
   /* Two-step wizard: step 1 asks the basic brief (business, audience,
      platforms, goal), step 2 asks the specific numbers that make captions
      concrete. Splitting them keeps the modal shorter — twelve visible fields
@@ -55,6 +61,24 @@ export function BriefPanel({ open, onClose }: { open: boolean; onClose: () => vo
     }
   }, [open, current, isExample]);
 
+  /* Bridge external `open` prop → mounted/closing lifecycle. Opening is
+     instant (mount + no closing class). Closing tags the panel with
+     `closing`, keeps it mounted for CLOSE_MS, then unmounts. */
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const t = window.setTimeout(() => {
+      setMounted(false);
+      setClosing(false);
+    }, CLOSE_MS);
+    return () => window.clearTimeout(t);
+  }, [open, mounted]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -75,7 +99,7 @@ export function BriefPanel({ open, onClose }: { open: boolean; onClose: () => vo
      will-change:transform, which makes it the containing block for every fixed
      descendant — inside it the scrim anchors to the full page height instead of
      the viewport, so the panel lands halfway down and runs off the bottom. */
-  if (!open || typeof document === "undefined") return null;
+  if (!mounted || typeof document === "undefined") return null;
 
   const set = <K extends keyof Brief>(key: K, value: Brief[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -115,9 +139,17 @@ export function BriefPanel({ open, onClose }: { open: boolean; onClose: () => vo
   };
 
   return createPortal(
-    <div className="brief-scrim" role="dialog" aria-modal="true" aria-label="Your brief">
+    <div
+      className={`brief-scrim${closing ? " brief-scrim--closing" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Your brief"
+    >
       <button className="brief-backdrop" aria-label="Close" onClick={onClose} type="button" />
-      <form className="brief-panel" onSubmit={submit}>
+      <form
+        className={`brief-panel${closing ? " brief-panel--closing" : ""}`}
+        onSubmit={submit}
+      >
         <header className="brief-head">
           <div>
             <p className="mono-label">
