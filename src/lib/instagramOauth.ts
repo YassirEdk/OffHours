@@ -2,46 +2,48 @@ import { createServerFn } from "@tanstack/react-start";
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
-/* Instagram / Facebook OAuth — thin server wrapper around Meta's Facebook
-   Login for Business + Instagram Graph API.
+/* Instagram OAuth — uses Meta's "Instagram API with Instagram Login" flow.
+   The user logs in with their Instagram credentials directly (no Facebook
+   Page hop required). Requires the IG account to be Business/Creator.
 
    Flow:
-     1) Client asks the server for an authorize URL scoped to this user.
-        `startInstagramOauth` signs a `state` param with the user id so the
-        callback can prove which account is being connected.
-     2) User is redirected to Facebook, approves scopes, is bounced back to
-        /auth/facebook/callback?code=…&state=…
-     3) The callback route runs `finishInstagramOauth`: verifies the state,
-        exchanges the code for a short-lived token, upgrades it to a long-
-        lived one, resolves the linked Facebook Page + Instagram business
-        account, and writes the result to the user's Supabase user_metadata.
+     1) Client calls startInstagramOauth → gets an authorize URL with a
+        signed `state` param carrying the user id.
+     2) User is redirected to instagram.com, approves, is bounced back to
+        FB_REDIRECT_URI?code=&state=
+     3) finishInstagramOauth verifies state, exchanges code → short-lived
+        token → long-lived (60 day) token, fetches the IG account
+        info, writes it to Supabase user_metadata.
 
-   Env vars required (both must be set in Vercel):
-     FB_APP_ID           — Meta app ID
-     FB_APP_SECRET       — Meta app secret (server-only, never expose to client)
-     FB_OAUTH_SECRET     — random string used to HMAC-sign the state param
-     FB_REDIRECT_URI     — must exactly match one of the Valid OAuth Redirect
-                           URIs in the Meta app config, e.g.
-                           https://offhours-ten.vercel.app/auth/facebook/callback
+   Env vars (server-only unless noted):
+     IG_APP_ID           — from Meta app → Products → Instagram → API setup
+                           with Instagram login → "ID d'app Instagram"
+     IG_APP_SECRET       — same panel, "Clé secrète Instagram"
+     FB_OAUTH_SECRET     — random 32+ char string used to HMAC-sign the
+                           OAuth state param
+     IG_REDIRECT_URI     — must exactly match the Valid OAuth Redirect URI
+                           set in the Instagram Login panel, e.g.
+                           https://offhours-ten.vercel.app/auth/instagram/callback
      SUPABASE_URL        — same base URL as VITE_SUPABASE_URL
      SUPABASE_SERVICE_ROLE_KEY — service role key; used to write the token
-                                 into the user's metadata after callback. */
+                                 into user metadata after callback */
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+const IG_AUTHORIZE = "https://www.instagram.com/oauth/authorize";
+const IG_TOKEN = "https://api.instagram.com/oauth/access_token";
+const IG_GRAPH = "https://graph.instagram.com";
 
-/* Scopes for posting + read + DMs. instagram_manage_messages needs App
-   Review + business verification; the rest are approvable with Login for
-   Business scope requests. */
-const SCOPES = [
-  "instagram_basic",
-  "instagram_content_publish",
-  "instagram_manage_messages",
-  "pages_show_list",
-  "pages_read_engagement",
-  "business_management",
-].join(",");
+/* Two-tier scope list — Meta requires App Review for publish/messages, but
+   instagram_business_basic works immediately for you as app admin. */
+const BASE_SCOPES = ["instagram_business_basic"];
+const _ADVANCED_SCOPES = [
+  "instagram_business_manage_messages",
+  "instagram_business_manage_comments",
+  "instagram_business_content_publish",
+  "instagram_business_manage_insights",
+];
+const SCOPES = BASE_SCOPES.join(",");
 
-const STATE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -73,97 +75,81 @@ function verifyState(state: string): { userId: string } {
   return { userId };
 }
 
-/* Called from the client — returns a full authorize URL the browser can
-   `window.location.href` to. Signs `state` server-side so the client can't
-   tamper with which user id ends up connected. */
 export const startInstagramOauth = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { userId: string })
   .handler(async ({ data }): Promise<{ url: string }> => {
-    const appId = requireEnv("FB_APP_ID");
-    const redirectUri = requireEnv("FB_REDIRECT_URI");
+    const clientId = requireEnv("IG_APP_ID");
+    const redirectUri = requireEnv("IG_REDIRECT_URI");
     const state = signState(data.userId);
-    const url = new URL("https://www.facebook.com/v21.0/dialog/oauth");
-    url.searchParams.set("client_id", appId);
+    const url = new URL(IG_AUTHORIZE);
+    url.searchParams.set("enable_fb_login", "0");
+    url.searchParams.set("force_authentication", "1");
+    url.searchParams.set("client_id", clientId);
     url.searchParams.set("redirect_uri", redirectUri);
-    url.searchParams.set("scope", SCOPES);
     url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope", SCOPES);
     url.searchParams.set("state", state);
     return { url: url.toString() };
   });
 
-/* Called from the OAuth callback route with the ?code=…&state=… params
-   Facebook sent back. Does all the exchanges and writes the resulting
-   connection object to the user's metadata. */
 export const finishInstagramOauth = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { code: string; state: string })
   .handler(async ({ data }): Promise<{ ok: true; igUsername: string | null }> => {
-    const appId = requireEnv("FB_APP_ID");
-    const appSecret = requireEnv("FB_APP_SECRET");
-    const redirectUri = requireEnv("FB_REDIRECT_URI");
+    const clientId = requireEnv("IG_APP_ID");
+    const clientSecret = requireEnv("IG_APP_SECRET");
+    const redirectUri = requireEnv("IG_REDIRECT_URI");
     const supabaseUrl = requireEnv("SUPABASE_URL");
     const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
     const { userId } = verifyState(data.state);
 
-    // 1. code → short-lived user access token
-    const tokenUrl = new URL(`${GRAPH}/oauth/access_token`);
-    tokenUrl.searchParams.set("client_id", appId);
-    tokenUrl.searchParams.set("client_secret", appSecret);
-    tokenUrl.searchParams.set("redirect_uri", redirectUri);
-    tokenUrl.searchParams.set("code", data.code);
-    const tokRes = await fetch(tokenUrl);
-    if (!tokRes.ok) throw new Error(`Token exchange failed: ${await tokRes.text()}`);
-    const { access_token: shortToken } = (await tokRes.json()) as { access_token: string };
+    // 1. code → short-lived user token (1 hour)
+    const form = new URLSearchParams();
+    form.set("client_id", clientId);
+    form.set("client_secret", clientSecret);
+    form.set("grant_type", "authorization_code");
+    form.set("redirect_uri", redirectUri);
+    form.set("code", data.code);
+    const shortRes = await fetch(IG_TOKEN, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
+    if (!shortRes.ok) throw new Error(`Token exchange failed: ${await shortRes.text()}`);
+    const shortJson = (await shortRes.json()) as {
+      access_token: string;
+      user_id: number;
+    };
 
     // 2. short-lived → long-lived (~60 days)
-    const longUrl = new URL(`${GRAPH}/oauth/access_token`);
-    longUrl.searchParams.set("grant_type", "fb_exchange_token");
-    longUrl.searchParams.set("client_id", appId);
-    longUrl.searchParams.set("client_secret", appSecret);
-    longUrl.searchParams.set("fb_exchange_token", shortToken);
+    const longUrl = new URL(`${IG_GRAPH}/access_token`);
+    longUrl.searchParams.set("grant_type", "ig_exchange_token");
+    longUrl.searchParams.set("client_secret", clientSecret);
+    longUrl.searchParams.set("access_token", shortJson.access_token);
     const longRes = await fetch(longUrl);
     if (!longRes.ok) throw new Error(`Long-lived exchange failed: ${await longRes.text()}`);
-    const long = (await longRes.json()) as { access_token: string; expires_in?: number };
-    const userToken = long.access_token;
-    const expiresAt = long.expires_in ? Date.now() + long.expires_in * 1000 : null;
-
-    // 3. list pages, pick the first — most connected users have one Page
-    const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${userToken}`);
-    if (!pagesRes.ok) throw new Error(`Pages fetch failed: ${await pagesRes.text()}`);
-    const pages = (await pagesRes.json()) as {
-      data: { id: string; name: string; access_token: string }[];
+    const longJson = (await longRes.json()) as {
+      access_token: string;
+      token_type?: string;
+      expires_in?: number;
     };
-    const page = pages.data[0];
-    if (!page) throw new Error("No Facebook Page found on this account.");
+    const igToken = longJson.access_token;
+    const expiresAt = longJson.expires_in ? Date.now() + longJson.expires_in * 1000 : null;
 
-    // 4. resolve the IG business account linked to that page
-    const igRes = await fetch(
-      `${GRAPH}/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`,
-    );
-    if (!igRes.ok) throw new Error(`IG lookup failed: ${await igRes.text()}`);
-    const igLink = (await igRes.json()) as { instagram_business_account?: { id: string } };
-    const igId = igLink.instagram_business_account?.id;
-    if (!igId) {
-      throw new Error(
-        "No Instagram Business account is linked to that Page. Convert the IG account to Business/Creator and link it in Facebook Page Settings.",
-      );
-    }
+    // 3. fetch IG account details
+    const meUrl = new URL(`${IG_GRAPH}/v21.0/me`);
+    meUrl.searchParams.set("fields", "id,user_id,username,account_type");
+    meUrl.searchParams.set("access_token", igToken);
+    const meRes = await fetch(meUrl);
+    if (!meRes.ok) throw new Error(`IG /me failed: ${await meRes.text()}`);
+    const me = (await meRes.json()) as {
+      id: string;
+      user_id?: string;
+      username?: string;
+      account_type?: string;
+    };
 
-    // 5. optional: pull username for a nicer confirmation
-    let igUsername: string | null = null;
-    try {
-      const userRes = await fetch(
-        `${GRAPH}/${igId}?fields=username&access_token=${page.access_token}`,
-      );
-      if (userRes.ok) {
-        const j = (await userRes.json()) as { username?: string };
-        igUsername = j.username ?? null;
-      }
-    } catch {
-      // non-fatal
-    }
-
-    // 6. store on the user's Supabase metadata via the service role client
+    // 4. store on Supabase user_metadata via service role client
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -174,12 +160,10 @@ export const finishInstagramOauth = createServerFn({ method: "POST" })
       instagram: {
         connectedAt: Date.now(),
         expiresAt,
-        pageId: page.id,
-        pageName: page.name,
-        pageAccessToken: page.access_token,
-        userAccessToken: userToken,
-        igUserId: igId,
-        igUsername,
+        accessToken: igToken,
+        igUserId: me.id,
+        igUsername: me.username ?? null,
+        accountType: me.account_type ?? null,
       },
     };
     const { error: updErr } = await admin.auth.admin.updateUserById(userId, {
@@ -187,5 +171,5 @@ export const finishInstagramOauth = createServerFn({ method: "POST" })
     });
     if (updErr) throw new Error(`Supabase updateUser failed: ${updErr.message}`);
 
-    return { ok: true, igUsername };
+    return { ok: true, igUsername: me.username ?? null };
   });

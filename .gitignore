@@ -61,6 +61,12 @@ test-results/
 tmp/
 scratch/
 
+# Graphify — generated knowledge-graph artifacts (regenerable, not source)
+graphify-out/
+.graphify_labels.json
+.graphify_python
+.graphify_root
+
 # Package manager artifacts
 .pnp.*
 .yarn/*

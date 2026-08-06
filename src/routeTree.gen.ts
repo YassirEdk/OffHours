@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PackRouteImport } from './routes/pack'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthFacebookCallbackRouteImport } from './routes/auth.facebook.callback'
+import { Route as AuthInstagramCallbackRouteImport } from './routes/auth.instagram.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const AuthFacebookCallbackRoute = AuthFacebookCallbackRouteImport.update({
   path: '/auth/facebook/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthInstagramCallbackRoute = AuthInstagramCallbackRouteImport.update({
+  id: '/auth/instagram/callback',
+  path: '/auth/instagram/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/pack': typeof PackRoute
   '/privacy': typeof PrivacyRoute
   '/auth/facebook/callback': typeof AuthFacebookCallbackRoute
+  '/auth/instagram/callback': typeof AuthInstagramCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/pack': typeof PackRoute
   '/privacy': typeof PrivacyRoute
   '/auth/facebook/callback': typeof AuthFacebookCallbackRoute
+  '/auth/instagram/callback': typeof AuthInstagramCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,30 @@ export interface FileRoutesById {
   '/pack': typeof PackRoute
   '/privacy': typeof PrivacyRoute
   '/auth/facebook/callback': typeof AuthFacebookCallbackRoute
+  '/auth/instagram/callback': typeof AuthInstagramCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pack' | '/privacy' | '/auth/facebook/callback'
+  fullPaths:
+    | '/'
+    | '/pack'
+    | '/privacy'
+    | '/auth/facebook/callback'
+    | '/auth/instagram/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pack' | '/privacy' | '/auth/facebook/callback'
-  id: '__root__' | '/' | '/pack' | '/privacy' | '/auth/facebook/callback'
+  to:
+    | '/'
+    | '/pack'
+    | '/privacy'
+    | '/auth/facebook/callback'
+    | '/auth/instagram/callback'
+  id:
+    | '__root__'
+    | '/'
+    | '/pack'
+    | '/privacy'
+    | '/auth/facebook/callback'
+    | '/auth/instagram/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +92,7 @@ export interface RootRouteChildren {
   PackRoute: typeof PackRoute
   PrivacyRoute: typeof PrivacyRoute
   AuthFacebookCallbackRoute: typeof AuthFacebookCallbackRoute
+  AuthInstagramCallbackRoute: typeof AuthInstagramCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthFacebookCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/instagram/callback': {
+      id: '/auth/instagram/callback'
+      path: '/auth/instagram/callback'
+      fullPath: '/auth/instagram/callback'
+      preLoaderRoute: typeof AuthInstagramCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +140,7 @@ const rootRouteChildren: RootRouteChildren = {
   PackRoute: PackRoute,
   PrivacyRoute: PrivacyRoute,
   AuthFacebookCallbackRoute: AuthFacebookCallbackRoute,
+  AuthInstagramCallbackRoute: AuthInstagramCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

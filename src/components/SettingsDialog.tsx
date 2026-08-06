@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useSettings, DEFAULT_SETTINGS, type BrandSettings, type LogoPlacement } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
 import { startInstagramOauth } from "@/lib/instagramOauth";
+import { startFacebookOauth } from "@/lib/facebookOauth";
 
 const CLOSE_MS = 380;
 const MAX_IMAGE_BYTES = 900_000; // ~900KB after base64 fits comfortably in user_metadata
@@ -27,7 +28,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
   const [notice, setNotice] = useState<string | null>(null);
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [connecting, setConnecting] = useState<"ig" | "fb" | null>(null);
 
   async function onConnectInstagram() {
     if (!user) {
@@ -35,12 +36,28 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
       return;
     }
     setError(null);
-    setConnecting(true);
+    setConnecting("ig");
     try {
       const { url } = await startInstagramOauth({ data: { userId: user.id } });
       window.location.href = url;
     } catch (e) {
-      setConnecting(false);
+      setConnecting(null);
+      setError(e instanceof Error ? e.message : "Couldn't start the connection flow.");
+    }
+  }
+
+  async function onConnectFacebook() {
+    if (!user) {
+      setError("You need to be signed in to connect Facebook.");
+      return;
+    }
+    setError(null);
+    setConnecting("fb");
+    try {
+      const { url } = await startFacebookOauth({ data: { userId: user.id } });
+      window.location.href = url;
+    } catch (e) {
+      setConnecting(null);
       setError(e instanceof Error ? e.message : "Couldn't start the connection flow.");
     }
   }
@@ -190,43 +207,67 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               <div className="settings-field">
                 <span className="mono-label">Connections</span>
                 {(() => {
-                  const ig = ((user?.user_metadata ?? {}) as {
+                  const meta = (user?.user_metadata ?? {}) as {
                     instagram?: { igUsername?: string | null };
-                  }).instagram;
-                  return ig?.igUsername ? (
-                    <p className="settings-hint">
-                      Connected as <strong>@{ig.igUsername}</strong>. Reconnect below to refresh
-                      the token.
-                    </p>
+                    facebook?: { pageName?: string | null };
+                  };
+                  const parts: string[] = [];
+                  if (meta.instagram?.igUsername) parts.push(`Instagram @${meta.instagram.igUsername}`);
+                  if (meta.facebook?.pageName) parts.push(`Facebook Page "${meta.facebook.pageName}"`);
+                  return parts.length ? (
+                    <p className="settings-hint">Connected: {parts.join(" · ")}. Reconnect below to refresh.</p>
                   ) : null;
                 })()}
-                <button
-                  type="button"
-                  className="settings-instagram-btn"
-                  onClick={onConnectInstagram}
-                  disabled={connecting}
-                >
-                  <svg
-                    className="settings-instagram-icon"
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+                <div className="settings-connections-row">
+                  <button
+                    type="button"
+                    className="settings-facebook-btn"
+                    onClick={onConnectFacebook}
+                    disabled={connecting !== null}
                   >
-                    <rect x="3" y="3" width="18" height="18" rx="5" />
-                    <circle cx="12" cy="12" r="4" />
-                    <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
-                  </svg>
-                  <span>
-                    {connecting ? "Redirecting…" : "Connect your Instagram"}
-                  </span>
-                  <span className="arrow" aria-hidden="true">→</span>
-                </button>
+                    <svg
+                      className="settings-facebook-icon"
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.7c0-.93.26-1.56 1.6-1.56H16.7V4.28c-.3-.04-1.36-.13-2.6-.13-2.57 0-4.33 1.57-4.33 4.45v2.2H7v3.2h2.77V22h3.73z" />
+                    </svg>
+                    <span>
+                      {connecting === "fb" ? "Redirecting…" : "Connect your Facebook"}
+                    </span>
+                    <span className="arrow" aria-hidden="true">→</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-instagram-btn"
+                    onClick={onConnectInstagram}
+                    disabled={connecting !== null}
+                  >
+                    <svg
+                      className="settings-instagram-icon"
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="5" />
+                      <circle cx="12" cy="12" r="4" />
+                      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
+                    </svg>
+                    <span>
+                      {connecting === "ig" ? "Redirecting…" : "Connect your Instagram"}
+                    </span>
+                    <span className="arrow" aria-hidden="true">→</span>
+                  </button>
+                </div>
               </div>
             </section>
           )}

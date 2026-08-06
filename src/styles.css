@@ -1445,8 +1445,45 @@ button:focus-visible > .logo .logo-mark {
   flex: 1;
 }
 
-/* Instagram connect — brand gradient with a subtle hover lift. Not a real
-   OAuth call yet; wired to a "coming soon" notice for now. */
+.settings-connections-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+/* Facebook connect — flat brand blue. Same shape as the Instagram button so
+   the pair reads as one group. */
+.settings-facebook-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: #1877f2;
+  box-shadow: 0 8px 20px -10px rgba(24, 119, 242, 0.6);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.2s ease;
+}
+.settings-facebook-btn:hover,
+.settings-facebook-btn:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 14px 28px -12px rgba(24, 119, 242, 0.7);
+  outline: none;
+}
+.settings-facebook-btn:active { transform: translateY(0); }
+.settings-facebook-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+.settings-facebook-btn .arrow { transition: transform 0.25s ease; }
+.settings-facebook-btn:hover .arrow,
+.settings-facebook-btn:focus-visible .arrow { transform: translateX(3px); }
+.settings-facebook-icon { flex: 0 0 auto; }
+
+/* Instagram connect — brand gradient with a subtle hover lift. */
 .settings-instagram-btn {
   display: inline-flex;
   align-items: center;

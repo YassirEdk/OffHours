@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { finishFacebookOauth } from "@/lib/facebookOauth";
+import { finishInstagramOauth } from "@/lib/instagramOauth";
 
-/* /auth/facebook/callback — Facebook Login for Business redirect target. */
-export const Route = createFileRoute("/auth/facebook/callback")({
+/* /auth/instagram/callback — Instagram Login redirect target. Uses the
+   direct-IG-login flow (no Facebook Page hop). */
+export const Route = createFileRoute("/auth/instagram/callback")({
   head: () => ({
     meta: [
-      { title: "Connecting Facebook — Offhours" },
+      { title: "Connecting Instagram — Offhours" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -32,8 +33,8 @@ export const Route = createFileRoute("/auth/facebook/callback")({
       return { ok: false as const, error: "Missing code or state." };
     }
     try {
-      const res = await finishFacebookOauth({ data: { code: deps.code, state: deps.state } });
-      return { ok: true as const, pageName: res.pageName };
+      const res = await finishInstagramOauth({ data: { code: deps.code, state: deps.state } });
+      return { ok: true as const, igUsername: res.igUsername };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : "Unknown error" };
     }
@@ -46,14 +47,14 @@ function CallbackPage() {
   return (
     <main className="legal-page">
       <article className="legal-body">
-        <p className="mono-label">Connection · Facebook</p>
+        <p className="mono-label">Connection · Instagram</p>
         {result.ok ? (
           <>
             <h1 className="display legal-title mt-4">Connected</h1>
             <p className="body-copy mt-4 max-w-[62ch] opacity-85">
-              {result.pageName
-                ? `Facebook Page "${result.pageName}" is now linked to your Offhours account.`
-                : "Your Facebook account is now linked. No Page was found — post/DM features will need a Facebook Page connected to your account."}
+              {result.igUsername
+                ? `Instagram account @${result.igUsername} is now linked to your Offhours account.`
+                : "Your Instagram business account is now linked."}
             </p>
           </>
         ) : (
@@ -61,7 +62,9 @@ function CallbackPage() {
             <h1 className="display legal-title mt-4">Couldn't connect</h1>
             <p className="body-copy mt-4 max-w-[62ch] opacity-85">{result.error}</p>
             <p className="body-copy mt-2 max-w-[62ch] opacity-70">
-              Try again from Settings.
+              Common causes: the Instagram account isn't Business/Creator, the OAuth session
+              expired, or the redirect URI in the Instagram Login panel doesn't match. Try again
+              from Settings.
             </p>
           </>
         )}
