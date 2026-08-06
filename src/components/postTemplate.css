@@ -31,7 +31,13 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.55) 62%, rgba(0, 0, 0, 0.9) 100%);
+  /* Two stacked scrims: a light overall dim so bright highlights can't blow
+     out white text, plus the original bottom-heavy gradient for hooks placed
+     near the base. Templates that centre-align text (10, 12, 17 …) now stay
+     readable without needing per-template overrides. */
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.35) 100%),
+    linear-gradient(180deg, transparent 30%, rgba(0, 0, 0, 0.55) 62%, rgba(0, 0, 0, 0.92) 100%);
 }
 
 .pt-stage {
@@ -64,6 +70,13 @@
   line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Guaranteed readability regardless of what's under the veil — a soft
+     dark halo hugs every glyph. Multi-layer shadow is denser than a single
+     one and prints crisp in the html-to-image export. */
+  text-shadow:
+    0 0 0.8cqi rgba(0, 0, 0, 0.65),
+    0 0.15cqi 0.4cqi rgba(0, 0, 0, 0.75),
+    0 0 1.6cqi rgba(0, 0, 0, 0.4);
 }
 
 .pt-cta {
@@ -79,6 +92,11 @@
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Same rationale as .pt-hook — a soft dark halo so the CTA reads even on
+     bright or busy backgrounds. Lighter shadow because the CTA is smaller. */
+  text-shadow:
+    0 0 0.6cqi rgba(0, 0, 0, 0.7),
+    0 0.1cqi 0.3cqi rgba(0, 0, 0, 0.8);
 }
 
 .pt-logo {
@@ -100,6 +118,9 @@
   font-weight: 700;
   font-size: 3.2cqi;
   letter-spacing: 0.05em;
+  text-shadow:
+    0 0 0.6cqi rgba(0, 0, 0, 0.7),
+    0 0.1cqi 0.3cqi rgba(0, 0, 0, 0.8);
 }
 
 /* T01 — Editorial */
