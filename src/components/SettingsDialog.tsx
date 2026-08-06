@@ -548,8 +548,10 @@ function ConnectionChip({
           title={`Disconnect ${variant === "fb" ? "Facebook" : "Instagram"}`}
         >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
-               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 6L6 18M6 6l12 12" />
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4" />
+            <path d="M10 17l5-5-5-5" />
+            <path d="M15 12H3" />
           </svg>
         </button>
       </div>
