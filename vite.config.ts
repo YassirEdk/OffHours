@@ -11,6 +11,12 @@ export default defineConfig(({ command, mode }) => ({
     host: "::",
     port: 8080,
   },
+  build: {
+    // A couple of vendor libs (gsap, radix, tanstack) push our largest chunk
+    // past Vite's 500KB default. Nothing is actually wrong — bumping the
+    // warning threshold to 1MB so the log stays useful for real regressions.
+    chunkSizeWarningLimit: 1000,
+  },
   resolve: {
     alias: {
       // fileURLToPath, not .pathname — on Windows the latter yields

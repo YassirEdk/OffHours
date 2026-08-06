@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSettings, DEFAULT_SETTINGS, type BrandSettings, type LogoPlacement } from "@/context/SettingsContext";
+import { useAuth } from "@/context/AuthContext";
+import { startInstagramOauth } from "@/lib/instagramOauth";
 
 const CLOSE_MS = 380;
 const MAX_IMAGE_BYTES = 900_000; // ~900KB after base64 fits comfortably in user_metadata
@@ -18,12 +20,30 @@ type Tab = "profile" | "company" | "style";
 
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { settings, saving, save } = useSettings();
+  const { user } = useAuth();
   const [draft, setDraft] = useState<BrandSettings>(settings);
   const [tab, setTab] = useState<Tab>("profile");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+
+  async function onConnectInstagram() {
+    if (!user) {
+      setError("You need to be signed in to connect Instagram.");
+      return;
+    }
+    setError(null);
+    setConnecting(true);
+    try {
+      const { url } = await startInstagramOauth({ data: { userId: user.id } });
+      window.location.href = url;
+    } catch (e) {
+      setConnecting(false);
+      setError(e instanceof Error ? e.message : "Couldn't start the connection flow.");
+    }
+  }
 
   /* Reseed the draft each time the panel opens, so an unsaved edit from a
      previous open doesn't stick around. */
@@ -169,10 +189,22 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               </div>
               <div className="settings-field">
                 <span className="mono-label">Connections</span>
+                {(() => {
+                  const ig = ((user?.user_metadata ?? {}) as {
+                    instagram?: { igUsername?: string | null };
+                  }).instagram;
+                  return ig?.igUsername ? (
+                    <p className="settings-hint">
+                      Connected as <strong>@{ig.igUsername}</strong>. Reconnect below to refresh
+                      the token.
+                    </p>
+                  ) : null;
+                })()}
                 <button
                   type="button"
                   className="settings-instagram-btn"
-                  onClick={() => setNotice("Instagram connection coming soon.")}
+                  onClick={onConnectInstagram}
+                  disabled={connecting}
                 >
                   <svg
                     className="settings-instagram-icon"
@@ -190,7 +222,9 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                     <circle cx="12" cy="12" r="4" />
                     <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
                   </svg>
-                  <span>Connect your Instagram</span>
+                  <span>
+                    {connecting ? "Redirecting…" : "Connect your Instagram"}
+                  </span>
                   <span className="arrow" aria-hidden="true">→</span>
                 </button>
               </div>
