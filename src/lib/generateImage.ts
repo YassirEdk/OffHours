@@ -244,6 +244,16 @@ function pickScenes(haystack: string): string[] {
       "hands operating a cordless drill, close-up",
     ];
   }
+  if (/(print|stationery|business ?card|card ?folio|greeting ?card|invitation|letterpress|packaging design)/.test(haystack)) {
+    return [
+      "a stack of premium business cards fanned out on a marble surface, top-down macro, moody spotlight",
+      "a single embossed business card standing upright against a soft-lit backdrop, shallow depth of field",
+      "hands holding a matte-finish business card between thumb and forefinger, cinematic close-up",
+      "letterpress printing plates and a stack of freshly printed cards on an oak workshop table",
+      "an overhead flatlay of business cards, brand paper samples and a fountain pen on charcoal linen",
+      "close-up macro of the edge of a thick cotton-paper business card, showing the crisp die-cut",
+    ];
+  }
   if (/(agency|marketing|design|studio|creative|branding|advertising)/.test(haystack)) {
     return [
       "a designer's desk with printed brand guidelines and pantone swatches",
@@ -303,11 +313,16 @@ function pickScenes(haystack: string): string[] {
     ];
   }
 
-  /* Fallback — still concrete, still cinematic, still fits the site style. */
+  /* Fallback — kept deliberately neutral. Earlier version said "professional
+     tools relevant to the trade" which literally produced wrenches, drills,
+     and pegboards for anything not in the specific matchers above. Neutral
+     workspace scenes never miss that badly. */
   return [
-    "a moody workspace scene with a laptop, a notebook, and a mug under a single warm lamp",
-    "a hand holding a pen over a printed document, close-up cinematic",
-    "an overhead flatlay of professional tools relevant to the trade, on a dark surface",
+    "a minimal desk scene with a laptop, a notebook and a ceramic mug, single warm lamp, dark background",
+    "an overhead flatlay of a leather notebook, a fountain pen and a coffee cup on charcoal linen",
+    "a moody close-up of a hand writing in a notebook with a fountain pen, warm lamp light",
+    "an editorial shot of a clean workspace — laptop closed, a plant, and a mug — soft window light",
+    "an abstract shot of soft warm light falling across a matte concrete surface, no props",
   ];
 }
 
